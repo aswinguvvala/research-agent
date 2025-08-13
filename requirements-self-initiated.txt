@@ -1,0 +1,25 @@
+# Requirements for Self-Initiated Research Agent Streamlit Interface
+# Core dependencies from main requirements
+openai>=1.0.0
+streamlit>=1.25.0
+plotly>=5.15.0
+pandas>=2.0.0
+networkx>=3.0
+matplotlib>=3.7.0
+
+# Additional dependencies for enhanced features
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Research tools (from main requirements)
+arxiv>=1.4.0
+wikipedia-api>=0.6.0
+scholarly>=1.7.0
+newspaper3k>=0.2.8
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+feedparser>=6.0.10
+aiohttp>=3.8.0
+
+# For financial data (optional)
+yfinance>=0.2.0

@@ -1,0 +1,26 @@
+# Lightweight Requirements for Free Tier Deployment
+# Optimized for Streamlit Cloud and low-memory environments
+
+# Core AI and LLM (required)
+openai==0.28.1
+
+# Web Framework (required for dashboard)
+streamlit>=1.28.0
+
+# Basic Data Processing
+pandas>=1.5.0  # Reduced version for memory
+requests>=2.31.0
+
+# Optional: Basic visualization (lightweight)
+plotly>=5.15.0  # For basic charts only
+
+# Optional: Research sources (minimal set)
+# arxiv>=1.4.0  # Commented out to reduce memory
+# scholarly>=1.7.11  # Commented out to reduce memory
+
+# Note: Heavy dependencies removed for free tier:
+# - chromadb (vector database) - replaced with in-memory storage
+# - sentence-transformers - replaced with lightweight text processing
+# - beautifulsoup4, newspaper3k - removed web scraping to reduce memory
+# - matplotlib, networkx - removed complex visualizations
+# - serpapi, yfinance - removed external APIs that require keys

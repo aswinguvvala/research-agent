@@ -1,0 +1,86 @@
+# Security - API Keys and Secrets
+.streamlit/secrets.toml
+*.env
+.env.*
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Research Agent Specific
+research_sessions/*.json
+reports/*.md
+enhanced_research_db/
+*.log
+*.cache
+
+# Streamlit
+.streamlit/config.toml
+.streamlit/credentials.toml
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Large files and databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Research data
+*.pdf
+*.doc
+*.docx
+papers/
+datasets/
