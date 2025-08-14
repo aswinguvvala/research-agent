@@ -38,7 +38,7 @@ class CostOptimizedLLM:
     
     def __init__(self, api_key: str):
         self.api_key = api_key
-        openai.api_key = api_key
+        self.client = openai.OpenAI(api_key=api_key)
         
         # Track usage
         self.total_requests = 0
@@ -64,7 +64,7 @@ class CostOptimizedLLM:
         try:
             response = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: openai.ChatCompletion.create(
+                lambda: self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=messages,
                     max_tokens=actual_max_tokens,
@@ -76,16 +76,16 @@ class CostOptimizedLLM:
             
             # Track usage
             self.total_requests += 1
-            usage = response.get("usage", {})
-            if usage:
-                cost = (usage.get("prompt_tokens", 0) / 1000 * self.cost_per_1k_input + 
-                       usage.get("completion_tokens", 0) / 1000 * self.cost_per_1k_output)
+            if hasattr(response, 'usage') and response.usage:
+                cost = (response.usage.prompt_tokens / 1000 * self.cost_per_1k_input + 
+                       response.usage.completion_tokens / 1000 * self.cost_per_1k_output)
                 self.estimated_cost += cost
             
             return response.choices[0].message.content
             
         except Exception as e:
             logger.error(f"LLM request failed: {e}")
+            logger.error(f"Error details: {type(e).__name__}: {str(e)}")
             return ""
     
     def get_stats(self) -> Dict:

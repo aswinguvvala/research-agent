@@ -13,17 +13,34 @@ import logging
 import sys
 import os
 
-# Import all components
-from .multi_agent_research_system import (
-    MultiAgentResearchSystem, ResearchTask, AgentMessage, MessageType
-)
-from .specialized_agents import (
-    AcademicSpecialist, TechnicalSpecialist, BusinessSpecialist, SocialSpecialist
-)
-from .quality_agents import FactChecker, SynthesisAgent
-from .vector_knowledge_system import VectorKnowledgeSystem, KnowledgeItem
-from .modern_api_sources import ModernAPIManager
-from .advanced_reasoning import ChainOfThoughtEngine, ReasoningType
+# Import all components with robust fallback to support running without package context
+try:
+    # Package-relative imports (when executed as part of the src package)
+    from .multi_agent_research_system import (
+        MultiAgentResearchSystem, ResearchTask, AgentMessage, MessageType
+    )
+    from .specialized_agents import (
+        AcademicSpecialist, TechnicalSpecialist, BusinessSpecialist, SocialSpecialist
+    )
+    from .quality_agents import FactChecker, SynthesisAgent
+    from .vector_knowledge_system import VectorKnowledgeSystem, KnowledgeItem
+    from .modern_api_sources import ModernAPIManager
+    from .advanced_reasoning import ChainOfThoughtEngine, ReasoningType
+except ImportError:
+    # Direct script execution fallback
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from multi_agent_research_system import (
+        MultiAgentResearchSystem, ResearchTask, AgentMessage, MessageType
+    )
+    from specialized_agents import (
+        AcademicSpecialist, TechnicalSpecialist, BusinessSpecialist, SocialSpecialist
+    )
+    from quality_agents import FactChecker, SynthesisAgent
+    from vector_knowledge_system import VectorKnowledgeSystem, KnowledgeItem
+    from modern_api_sources import ModernAPIManager
+    from advanced_reasoning import ChainOfThoughtEngine, ReasoningType
 
 logger = logging.getLogger(__name__)
 

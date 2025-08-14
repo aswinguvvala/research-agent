@@ -16,13 +16,15 @@ import logging
 import sys
 import os
 
-# Import the enhanced research system
+# Import the enhanced research system with robust fallback
 try:
     from .enhanced_research_system import EnhancedResearchSystem
     from .advanced_reasoning import ReasoningType
 except ImportError:
-    # For standalone execution
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    # For standalone execution without package context
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
     from enhanced_research_system import EnhancedResearchSystem
     from advanced_reasoning import ReasoningType
 
