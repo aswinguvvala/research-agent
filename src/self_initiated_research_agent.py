@@ -855,82 +855,6 @@ class SelfInitiatedResearchAgent:
         else:
             # Generic domain-aware fallback plan
             self.research_plan = self._generate_domain_aware_fallback(goal, domain_context)
-                
-                if technologies:
-                    tech_list = ' and '.join(technologies)
-                    self.research_plan = ResearchPlan(
-                        goal=goal,
-                        sub_goals=[
-                            f"Understand {tech_list} architecture and design principles",
-                            f"Research {tech_list} training methodology and datasets",
-                            f"Find implementation details and code examples for {tech_list}",
-                            f"Explore practical applications and use cases of {tech_list}",
-                            f"Compare performance and benchmarks of {tech_list}"
-                        ],
-                        research_questions=[
-                            f"What is the core architecture of {tech_list}?",
-                            f"How is {tech_list} trained and what datasets are used?",
-                            f"What are the key implementation details of {tech_list}?",
-                            f"What are the main applications and use cases of {tech_list}?",
-                            f"How does {tech_list} compare to other similar technologies?",
-                            f"What are the performance metrics and benchmarks for {tech_list}?"
-                        ],
-                        priority_topics=[
-                            f"{tech} architecture" for tech in technologies
-                        ] + [
-                            f"{tech} implementation" for tech in technologies
-                        ] + [
-                            f"{tech} applications" for tech in technologies
-                        ],
-                        search_strategies=[
-                            f"arXiv search for {tech_list} papers",
-                            f"Google Scholar search for {tech_list} research",
-                            f"GitHub search for {tech_list} implementations",
-                            f"Technical documentation search for {tech_list}",
-                            "Academic database search for neural networks and AI"
-                        ],
-                        success_criteria=[
-                            f"Comprehensive understanding of {tech_list} architecture",
-                            f"Clear explanation of {tech_list} training process",
-                            f"Practical implementation guidance for {tech_list}",
-                            f"Real-world application examples of {tech_list}",
-                            "Performance comparison data and benchmarks"
-                        ],
-                        time_budget=300,
-                        created_at=datetime.now()
-                    )
-                else:
-                    # Generic technical fallback
-                    self.research_plan = ResearchPlan(
-                        goal=goal,
-                        sub_goals=[
-                            f"Understand the technical architecture involved in {goal}",
-                            f"Research implementation details and methodologies",
-                            f"Find practical applications and use cases"
-                        ],
-                        research_questions=[
-                            f"What are the core technical concepts in {goal}?",
-                            f"How are these technologies implemented?",
-                            f"What are the practical applications?"
-                        ],
-                        priority_topics=[goal],
-                        search_strategies=["academic AI/ML search", "technical documentation search"],
-                        success_criteria=["Technical understanding achieved"],
-                        time_budget=300,
-                        created_at=datetime.now()
-                    )
-            else:
-                # Original fallback for non-technical queries
-                self.research_plan = ResearchPlan(
-                    goal=goal,
-                    sub_goals=[f"Understand basics of {goal}", f"Explore applications of {goal}"],
-                    research_questions=[f"What is {goal}?", f"Why is {goal} important?"],
-                    priority_topics=[goal],
-                    search_strategies=["academic search", "web search"],
-                    success_criteria=["Basic understanding achieved"],
-                    time_budget=300,
-                    created_at=datetime.now()
-                )
         
         # Add initial node to knowledge graph
         root_node = ResearchNode(
@@ -1976,40 +1900,7 @@ class SelfInitiatedResearchAgent:
             if node.node_type == 'question' and not node.children
         ]
         
-            return unanswered[:5]  # Return up to 5 unanswered questions
-        return []
-                - **DeepFace Coverage**: {deepface_count} findings on Facebook's facial recognition system
-                - **DistilBERT/BERT Coverage**: {bert_count} findings on transformer models and knowledge distillation
-                - **Open Questions**: {len(questions)} areas requiring further investigation
-                
-                ### Key Technologies Researched
-                {"- **DeepFace**: Facebook's deep learning approach to face recognition" if deepface_count > 0 else ""}
-                {"- **DistilBERT**: Knowledge distillation applied to BERT for model compression" if bert_count > 0 else ""}
-                
-                ### Implementation Status
-                The research provides foundational understanding of these AI/ML technologies, including:
-                - Architecture and design principles
-                - Training methodologies and datasets
-                - Practical applications and use cases
-                
-                ### Next Steps for Implementation
-                1. **DeepFace**: Research original Facebook paper (Taigman et al.), explore face verification vs identification
-                2. **DistilBERT**: Study Hugging Face implementation, understand knowledge distillation process
-                3. **Practical Implementation**: Find code examples and tutorials for hands-on learning
-                
-                *Enhanced technical research recommended for complete from-scratch implementation guidance.*
-                """
-            else:
-                # Original fallback for non-technical queries
-                return f"""
-                Research Summary for: {goal}
-                
-                Findings: Discovered {len(facts)} key facts across multiple sources.
-                Questions: Identified {len(questions)} areas requiring further investigation.
-                
-                The research reveals important insights but also highlights areas needing deeper exploration.
-                Further investigation recommended for comprehensive understanding.
-                """
+        return unanswered[:5]  # Return up to 5 unanswered questions
     
     def interactive_dialogue(self, user_input: str) -> str:
         """
