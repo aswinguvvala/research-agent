@@ -1,0 +1,41 @@
+2025-08-18 23:36:42 - enhanced_research_agent - WARNING - ⚠️ Relevance validator initialized without semantic analysis (install sentence-transformers for better validation)
+2025-08-18 23:36:44 - app.services.research_service - ERROR - ❌ Research failed: 'EnhancedResearchAgent' object has no attribute 'conduct_research'
+2025-08-18 23:36:44 - app.api.research - ERROR - ❌ Research error: 'EnhancedResearchAgent' object has no attribute 'conduct_research'
+2025-08-18 23:37:22 - enhanced_research_agent - WARNING - ⚠️ Relevance validator initialized without semantic analysis (install sentence-transformers for better validation)
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed primary threshold 0.35, trying fallback threshold 0.25
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed primary threshold 0.35, trying fallback threshold 0.25
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed primary threshold 0.35, trying fallback threshold 0.25
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:37:27 - enhanced_research_agent - WARNING - Pre-synthesis quality gates failed - attempting graceful degradation
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed primary threshold 0.20, trying fallback threshold 0.25
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed primary threshold 0.20, trying fallback threshold 0.25
+2025-08-18 23:37:27 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:37:27 - enhanced_research_agent - WARNING - All graceful degradation strategies exhausted - proceeding with available sources
+2025-08-18 23:37:27 - enhanced_research_agent - WARNING - Quality gates failed even with graceful degradation - proceeding with reduced confidence
+2025-08-18 23:37:28 - enhanced_research_agent - ERROR - AI synthesis failed: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-test-*****************demo. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-08-18 23:38:01 - enhanced_research_agent - WARNING - ⚠️ Relevance validator initialized without semantic analysis (install sentence-transformers for better validation)
+2025-08-18 23:38:10 - relevance_validator - WARNING - No sources passed primary threshold 0.35, trying fallback threshold 0.25
+2025-08-18 23:38:10 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:38:10 - relevance_validator - WARNING - No sources passed primary threshold 0.35, trying fallback threshold 0.25
+2025-08-18 23:38:10 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:38:10 - relevance_validator - WARNING - No sources passed primary threshold 0.35, trying fallback threshold 0.25
+2025-08-18 23:38:10 - relevance_validator - WARNING - No sources passed fallback threshold, taking top scoring sources
+2025-08-18 23:38:10 - enhanced_research_agent - WARNING - Pre-synthesis quality gates failed - attempting graceful degradation
+2025-08-18 23:38:12 - enhanced_research_agent - ERROR - AI synthesis failed: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-test-*****************demo. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-08-19 13:18:11 - ai_search_strategist - ERROR - ❌ Search strategy adaptation failed: Expecting value: line 1 column 1 (char 0)
+2025-08-19 13:18:56 - ai_honest_synthesizer - ERROR - ❌ Failed to parse AI synthesis response: Expecting value: line 1 column 1 (char 0)
+2025-08-19 13:18:56 - ai_honest_synthesizer - WARNING - 🆘 Using fallback synthesis
+2025-08-19 13:18:56 - autonomous_research_agent - ERROR - ❌ Autonomous research failed: vars() argument must have __dict__ attribute
+2025-08-19 13:18:56 - app.services.research_service - ERROR - ❌ Research failed: type object 'QualityLevel' has no attribute 'high'
+2025-08-19 13:18:56 - app.api.research - ERROR - ❌ Research error: type object 'QualityLevel' has no attribute 'high'
+2025-08-19 13:19:31 - ai_search_strategist - ERROR - ❌ Search strategy adaptation failed: Expecting value: line 1 column 1 (char 0)
+2025-08-19 13:20:24 - autonomous_research_agent - ERROR - ❌ Autonomous research failed: vars() argument must have __dict__ attribute
+2025-08-19 13:20:24 - app.services.research_service - ERROR - ❌ Research failed: type object 'QualityLevel' has no attribute 'high'
+2025-08-19 13:20:24 - app.api.research - ERROR - ❌ Research error: type object 'QualityLevel' has no attribute 'high'
+2025-08-19 13:30:10 - ai_search_strategist - ERROR - ❌ Search strategy adaptation failed: Expecting value: line 1 column 1 (char 0)
+2025-08-19 13:30:18 - ai_search_strategist - ERROR - ❌ Search strategy adaptation failed: Expecting value: line 1 column 1 (char 0)
+2025-08-19 13:30:51 - autonomous_research_agent - ERROR - ❌ Autonomous research failed: vars() argument must have __dict__ attribute
+2025-08-19 13:34:26 - ai_search_strategist - WARNING - ArXiv search failed for 'optimizers in recurrent neural networks': Page of results was unexpectedly empty (https://export.arxiv.org/api/query?search_query=optimizers+in+recurrent+neural+networks&id_list=&sortBy=relevance&sortOrder=descending&start=3&max_results=100)

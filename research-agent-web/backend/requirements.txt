@@ -1,0 +1,49 @@
+# Research Agent Web Backend Dependencies
+# Core API Framework
+fastapi>=0.104.1,<1.0.0
+uvicorn[standard]>=0.24.0,<1.0.0
+websockets>=12.0,<13.0
+
+# Background Tasks
+celery>=5.3.4,<6.0.0
+redis>=5.0.1,<6.0.0
+
+# Database
+sqlalchemy>=2.0.23,<3.0.0
+alembic>=1.12.1,<2.0.0
+
+# HTTP & API
+httpx>=0.25.2,<1.0.0
+python-multipart>=0.0.6,<1.0.0
+pydantic>=1.10.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+
+# Environment
+python-dotenv>=1.0.0,<2.0.0
+
+# Existing Research Agent Dependencies
+# Core functionality with optional enhanced features
+
+# AI/LLM Integration (Required)
+openai>=1.0.0,<2.0.0
+
+# API and Web Requests (Required)
+requests>=2.31.0,<3.0.0
+aiohttp>=3.8.0,<4.0.0
+beautifulsoup4>=4.12.0,<5.0.0
+
+# Research Sources (Required)
+arxiv>=2.1.0,<3.0.0
+feedparser>=6.0.10,<7.0.0
+
+# Content Processing (Required)
+PyPDF2>=3.0.0,<4.0.0
+
+# Basic Text Processing (Required)
+textstat>=0.7.0,<1.0.0
+
+# Enhanced Features (Optional - install separately if needed)
+# For enhanced validation and semantic analysis:
+# pip install sentence-transformers>=2.2.0,<3.0.0
+# pip install scikit-learn>=1.3.0,<2.0.0
+# pip install spacy>=3.6.0,<4.0.0

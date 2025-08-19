@@ -1,0 +1,53 @@
+{
+  "research_id": "93ad553d-0198-46af-b300-4af53ec6ce8c",
+  "query": "What are the latest developments in artificial intelligence?",
+  "mode": "basic",
+  "citation_style": "apa",
+  "synthesis": "Research Summary: What are the latest developments in artificial intelligence?\nBased on 2 sources:\n\n• Supplementary material for Uncorrected least-squares [Source 1]: Supplementary material for Uncorrected least-squares temporal difference with lambda-return Takayuki Osogami IBM Research - Tokyo osogami jp.ibm.com November 15, 2019 Abstract Here, we provide a supplementary material for Takayuki Osogami,  Uncorrected least-squares temporal difference with lambda-return,  which appears in Proceedings of the 34th AAAI Conference on Artiﬁcial Intelligence (AAAI-20)  Osogami, 2019 . A Proofs In this section, we prove Theorem 1, Lemma 1, Theorem 2, Lemma 2, and Proposition 1\n• Adaptive Artiﬁcial Intelligence in Games: Issues, [Source 2]: Adaptive Artiﬁcial Intelligence in Games: Issues, Requirements, and a Solution through Behavlets-based General Player Modelling Benjamin Ultan Cowley BrainWork Research Centre Finnish Institute of Occupational Health POBox 40, Helsinki 00250, Finland Cognitive Brain Research Group University of Helsinki, Finland Email: ben.cowley helsinki.ﬁDarryl Charles School of Computing   Information Engineering University of Ulster Northern Ireland Email: dk.charles ulster.ac.uk Abstract  We present the last in a series of three academic essays which deal with the question of how and why to build a generalized player model. We begin with a proposition: a general model of players requires parameters for the subjective experience of play, including at least: player psychology, game structure, and actions of play",
+  "sources": [
+    {
+      "title": "Supplementary material for Uncorrected least-squares",
+      "authors": [
+        "Supplementary material",
+        "for Uncorrected",
+        "difference with",
+        "we provide",
+        "supplementary material",
+        "for Takayuki"
+      ],
+      "year": "2019",
+      "url": "http://arxiv.org/abs/1911.06057v1",
+      "doi": null,
+      "journal": null,
+      "source_type": "arxiv",
+      "relevance_score": null,
+      "abstract": null
+    },
+    {
+      "title": "Adaptive Artiﬁcial Intelligence in Games: Issues,",
+      "authors": [
+        "Adaptive Arti",
+        "cial Intelligence",
+        "in Games",
+        "Solution through",
+        "based General",
+        "Player Modelling"
+      ],
+      "year": "2016",
+      "url": "http://arxiv.org/abs/1607.05028v2",
+      "doi": null,
+      "journal": null,
+      "source_type": "arxiv",
+      "relevance_score": null,
+      "abstract": null
+    }
+  ],
+  "quality_assessment": null,
+  "research_time": 5.36,
+  "timestamp": "2025-08-18 20:53:32.427471",
+  "bibliography": "Research Report: What are the latest developments in artificial intelligence?\n============================================================\nGenerated on: 2025-08-18 20:53:32\nNumber of sources: 2\n\nSYNTHESIS\n--------------------\nResearch Summary: What are the latest developments in artificial intelligence?\nBased on 2 sources:\n\n• Supplementary material for Uncorrected least-squares [Source 1]: Supplementary material for Uncorrected least-squares temporal difference with lambda-return Takayuki Osogami IBM Research - Tokyo osogami jp.ibm.com November 15, 2019 Abstract Here, we provide a supplementary material for Takayuki Osogami,  Uncorrected least-squares temporal difference with lambda-return,  which appears in Proceedings of the 34th AAAI Conference on Artiﬁcial Intelligence (AAAI-20)  Osogami, 2019 . A Proofs In this section, we prove Theorem 1, Lemma 1, Theorem 2, Lemma 2, and Proposition 1\n• Adaptive Artiﬁcial Intelligence in Games: Issues, [Source 2]: Adaptive Artiﬁcial Intelligence in Games: Issues, Requirements, and a Solution through Behavlets-based General Player Modelling Benjamin Ultan Cowley BrainWork Research Centre Finnish Institute of Occupational Health POBox 40, Helsinki 00250, Finland Cognitive Brain Research Group University of Helsinki, Finland Email: ben.cowley helsinki.ﬁDarryl Charles School of Computing   Information Engineering University of Ulster Northern Ireland Email: dk.charles ulster.ac.uk Abstract  We present the last in a series of three academic essays which deal with the question of how and why to build a generalized player model. We begin with a proposition: a general model of players requires parameters for the subjective experience of play, including at least: player psychology, game structure, and actions of play\n\nBIBLIOGRAPHY\n--------------------\nReferences (APA)\n==================================================\n\n1. Arti, A., Intelligence, c., Games, i., through, S., General, b., & Modelling, P. (2016) *Adaptive Artiﬁcial Intelligence in Games: Issues,*. http://arxiv.org/abs/1607.05028v2\n\n2. material, S., Uncorrected, f., with, d., provide, w., material, s., & Takayuki, f. (2019) *Supplementary material for Uncorrected least-squares*. http://arxiv.org/abs/1911.06057v1\n",
+  "domain_detected": null,
+  "validation_summary": null,
+  "cross_validation_result": null,
+  "recommendations": null
+}
