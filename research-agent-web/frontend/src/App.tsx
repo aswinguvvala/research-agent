@@ -6,6 +6,7 @@ function App() {
   const [citationStyle, setCitationStyle] = useState('apa');
   const [isResearching, setIsResearching] = useState(false);
   const [results, setResults] = useState(null);
+  const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,6 +14,7 @@ function App() {
 
     setIsResearching(true);
     setResults(null);
+    setError(null);
 
     try {
       const response = await fetch('http://127.0.0.1:8000/api/research/conduct', {
@@ -32,9 +34,12 @@ function App() {
         const data = await response.json();
         setResults(data);
       } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Research failed. Please check the backend logs for more details.');
         console.error('Research failed:', response.statusText);
       }
     } catch (error) {
+      setError('An unexpected error occurred. Please ensure the backend is running and accessible.');
       console.error('Error:', error);
     } finally {
       setIsResearching(false);
@@ -42,115 +47,133 @@ function App() {
   };
 
   return (
-    <div style={{ 
+    <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'url(https://images.unsplash.com/photo-1517976487-14210383765b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
       padding: '20px'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ 
-            color: 'white', 
-            fontSize: '3rem', 
+          <h1 style={{
+            color: 'white',
+            fontSize: '3.5rem',
             fontWeight: 'bold',
-            margin: '0 0 10px 0'
+            margin: '0 0 10px 0',
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
           }}>
-            🔬 Research Agent
+            🔬 Advanced Research Agent
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.2rem' }}>
-            AI-Powered Research Assistant
+          <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.3rem', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+            Your AI-Powered Research Partner
           </p>
         </div>
 
         {/* Research Form */}
         <div style={{
-          background: 'white',
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(10px)',
           borderRadius: '16px',
-          padding: '30px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+          padding: '40px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
           marginBottom: '30px'
         }}>
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
-                fontWeight: '600',
-                color: '#374151'
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '10px',
+                fontWeight: '700',
+                color: '#1f2937',
+                fontSize: '1.1rem'
               }}>
-                Research Query
+                What would you like to research?
               </label>
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Enter your research question..."
+                placeholder="e.g., 'The future of AI in healthcare'"
                 style={{
                   width: '100%',
-                  padding: '12px 16px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
+                  padding: '14px 18px',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '10px',
                   fontSize: '16px',
                   outline: 'none',
-                  transition: 'border-color 0.2s'
+                  transition: 'all 0.3s ease',
+                  boxSizing: 'border-box'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#3b82f6';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.3)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#d1d5db';
+                  e.target.style.boxShadow = 'none';
+                }}
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '8px', 
-                  fontWeight: '600',
-                  color: '#374151'
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '25px' }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '10px',
+                  fontWeight: '700',
+                  color: '#1f2937',
+                  fontSize: '1.1rem'
                 }}>
-                  Research Mode
+                  Research Depth
                 </label>
                 <select
                   value={mode}
                   onChange={(e) => setMode(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
+                    padding: '14px 18px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '10px',
                     fontSize: '16px',
-                    background: 'white'
+                    background: 'white',
+                    appearance: 'none',
+                    cursor: 'pointer'
                   }}
                 >
-                  <option value="basic">Basic Research</option>
-                  <option value="enhanced">Enhanced Research</option>
+                  <option value="basic">Quick Summary</option>
+                  <option value="enhanced">In-depth Analysis</option>
                 </select>
               </div>
 
-              <div style={{ flex: 1 }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '8px', 
-                  fontWeight: '600',
-                  color: '#374151'
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '10px',
+                  fontWeight: '700',
+                  color: '#1f2937',
+                  fontSize: '1.1rem'
                 }}>
-                  Citation Style
+                  Citation Format
                 </label>
                 <select
                   value={citationStyle}
                   onChange={(e) => setCitationStyle(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
+                    padding: '14px 18px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '10px',
                     fontSize: '16px',
-                    background: 'white'
+                    background: 'white',
+                    appearance: 'none',
+                    cursor: 'pointer'
                   }}
                 >
-                  <option value="apa">APA Style</option>
-                  <option value="mla">MLA Style</option>
-                  <option value="ieee">IEEE Style</option>
+                  <option value="apa">APA (American Psychological Association)</option>
+                  <option value="mla">MLA (Modern Language Association)</option>
+                  <option value="ieee">IEEE (Institute of Electrical and Electronics Engineers)</option>
                 </select>
               </div>
             </div>
@@ -160,39 +183,58 @@ function App() {
               disabled={!query.trim() || isResearching}
               style={{
                 width: '100%',
-                padding: '16px',
-                background: isResearching ? '#9ca3af' : '#3b82f6',
+                padding: '18px',
+                background: isResearching ? '#6b7280' : 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 fontSize: '18px',
-                fontWeight: '600',
+                fontWeight: 'bold',
                 cursor: isResearching ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s',
+                transition: 'all 0.3s ease',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '10px'
+                gap: '12px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = isResearching ? 'none' : 'translateY(-2px)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
             >
               {isResearching ? (
                 <>
                   <div style={{
                     width: '20px',
                     height: '20px',
-                    border: '3px solid rgba(255,255,255,0.3)',
+                    border: '3px solid rgba(255,255,255,0.4)',
                     borderRadius: '50%',
                     borderTopColor: 'white',
                     animation: 'spin 1s linear infinite'
                   }}></div>
-                  Researching...
+                  Analyzing...
                 </>
               ) : (
-                '🚀 Start Research'
+                '🚀 Begin Research'
               )}
             </button>
           </form>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: 'rgba(255, 107, 107, 0.9)',
+            color: 'white',
+            borderRadius: '16px',
+            padding: '20px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+            marginBottom: '30px',
+            textAlign: 'center'
+          }}>
+            <h3>Error</h3>
+            <p>{error}</p>
+          </div>
+        )}
 
         {/* Results Section */}
         {results && (

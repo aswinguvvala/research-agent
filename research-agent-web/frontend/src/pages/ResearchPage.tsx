@@ -40,9 +40,9 @@ const ResearchPage: React.FC = () => {
 
   const exampleQueries = [
     "What are the latest advances in large language model reasoning?",
-    "Compare agile vs waterfall software development methodologies",
-    "How effective are transformer architectures for natural language processing?",
-    "What are the benefits and drawbacks of microservices architecture?",
+    "Compare agile vs waterfall software development methodologies", 
+    "How does climate change affect ocean temperatures?",
+    "What are the benefits of renewable energy sources?",
   ];
 
   return (
@@ -102,15 +102,34 @@ const ResearchPage: React.FC = () => {
                 className="input-field"
                 disabled={isResearching}
               >
-                <option value={ResearchMode.BASIC}>Basic Mode</option>
-                <option value={ResearchMode.ENHANCED}>Enhanced Mode (Recommended)</option>
+                <option value={ResearchMode.BASIC}>⚡ Basic Mode - Fast & Essential</option>
+                <option value={ResearchMode.ENHANCED}>🚀 Enhanced Mode - Comprehensive</option>
               </select>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {mode === ResearchMode.ENHANCED 
-                  ? 'Includes validation layers and quality assessment'
-                  : 'Faster research with basic validation'
-                }
-              </p>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-1">
+                {mode === ResearchMode.ENHANCED ? (
+                  <>
+                    <p className="font-medium text-primary-600 dark:text-primary-400">🚀 Enhanced Mode:</p>
+                    <ul className="list-disc list-inside space-y-0.5 ml-2">
+                      <li>15-25 sources from multiple domains</li>
+                      <li>Advanced AI analysis & quality assessment</li>
+                      <li>Detailed synthesis with recommendations</li>
+                      <li>Complete validation pipeline</li>
+                      <li>Estimated time: 2-4 minutes</li>
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-amber-600 dark:text-amber-400">⚡ Basic Mode:</p>
+                    <ul className="list-disc list-inside space-y-0.5 ml-2">
+                      <li>5-8 most relevant sources</li>
+                      <li>Quick summary of key findings</li>
+                      <li>Essential information only</li>
+                      <li>Streamlined processing</li>
+                      <li>Estimated time: 30-60 seconds</li>
+                    </ul>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Citation Style */}
@@ -150,6 +169,44 @@ const ResearchPage: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {/* Mode Recommendations */}
+      {!isResearching && !currentResult && (
+        <div className="max-w-4xl mx-auto mb-8">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+              <span className="mr-2">💡</span>
+              Choose Your Research Mode
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <h4 className="font-medium text-amber-700 dark:text-amber-300 flex items-center">
+                  <span className="mr-1">⚡</span>
+                  Use Basic Mode when:
+                </h4>
+                <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                  <li>• You need quick answers</li>
+                  <li>• Simple factual questions</li>
+                  <li>• Time is limited</li>
+                  <li>• Getting initial overview</li>
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-medium text-blue-700 dark:text-blue-300 flex items-center">
+                  <span className="mr-1">🚀</span>
+                  Use Enhanced Mode when:
+                </h4>
+                <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                  <li>• Complex research topics</li>
+                  <li>• Academic or professional use</li>
+                  <li>• Need comprehensive analysis</li>
+                  <li>• Want quality validation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Example Queries */}
       {!isResearching && !currentResult && (

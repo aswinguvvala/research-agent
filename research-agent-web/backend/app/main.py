@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -92,12 +93,18 @@ async def root() -> Dict[str, str]:
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     """Handle 404 errors."""
-    return {"error": "Endpoint not found", "path": str(request.url)}
+    return JSONResponse(
+        status_code=404,
+        content={"error": "Endpoint not found", "path": str(request.url)}
+    )
 
 @app.exception_handler(500)
 async def internal_error_handler(request, exc):
     """Handle internal server errors."""
-    return {"error": "Internal server error", "message": str(exc)}
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "message": str(exc)}
+    )
 
 if __name__ == "__main__":
     uvicorn.run(

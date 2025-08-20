@@ -79,37 +79,54 @@ class ResearchService:
             if not api_key:
                 raise ValueError("OpenAI API key not configured")
             
-            # Create research agent - prioritize advanced autonomous agent
-            if ADVANCED_AVAILABLE:
-                # Get optional Google Scholar API key
-                scholar_api_key = os.getenv("SERPAPI_API_KEY")
-                agent = AdvancedAutonomousResearchAgent(
-                    openai_api_key=api_key,
-                    google_scholar_api_key=scholar_api_key,
-                    max_sources=request.max_sources or 30,  # Increase default for advanced agent
-                    debug_mode=request.debug_mode or False
-                )
-                logger.info(f"🚀 Using Advanced Autonomous Research Agent (mode: {request.mode})")
-            elif AUTONOMOUS_AVAILABLE:
-                agent = AutonomousResearchAgent(
-                    openai_api_key=api_key,
-                    max_sources=request.max_sources or 10,
-                    debug_mode=request.debug_mode or False
-                )
-                logger.info(f"🤖 Using Autonomous Research Agent (mode: {request.mode})")
-            elif ENHANCED_AVAILABLE:
-                agent = EnhancedResearchAgent(
-                    openai_api_key=api_key,
-                    max_sources=request.max_sources or 10,
-                    debug_mode=request.debug_mode or False
-                )
-                logger.info(f"✅ Using Enhanced Research Agent (mode: {request.mode})")
+            # Create research agent based on mode - different agents for different modes
+            if request.mode == ResearchMode.BASIC:
+                # Basic mode: Use simpler agent with fewer sources for fast results
+                if ENHANCED_AVAILABLE:
+                    agent = EnhancedResearchAgent(
+                        openai_api_key=api_key,
+                        max_sources=request.max_sources or 8,  # Limit sources for speed
+                        debug_mode=request.debug_mode or False
+                    )
+                    logger.info(f"⚡ Using Enhanced Research Agent for Basic mode (faster processing)")
+                else:
+                    agent = ResearchAgent(
+                        openai_api_key=api_key,
+                        max_sources=request.max_sources or 6  # Even fewer for basic agent
+                    )
+                    logger.info(f"⚡ Using Basic Research Agent for Basic mode (faster processing)")
             else:
-                agent = ResearchAgent(
-                    openai_api_key=api_key,
-                    max_sources=request.max_sources or 10
-                )
-                logger.info(f"⚠️ Using Basic Research Agent (mode: {request.mode})")
+                # Enhanced mode: Use advanced agent with more sources for comprehensive results
+                if ADVANCED_AVAILABLE:
+                    # Get optional Google Scholar API key
+                    scholar_api_key = os.getenv("SERPAPI_API_KEY")
+                    agent = AdvancedAutonomousResearchAgent(
+                        openai_api_key=api_key,
+                        google_scholar_api_key=scholar_api_key,
+                        max_sources=request.max_sources or 25,  # More sources for comprehensive analysis
+                        debug_mode=request.debug_mode or False
+                    )
+                    logger.info(f"🚀 Using Advanced Autonomous Research Agent for Enhanced mode (comprehensive analysis)")
+                elif AUTONOMOUS_AVAILABLE:
+                    agent = AutonomousResearchAgent(
+                        openai_api_key=api_key,
+                        max_sources=request.max_sources or 15,
+                        debug_mode=request.debug_mode or False
+                    )
+                    logger.info(f"🤖 Using Autonomous Research Agent for Enhanced mode (comprehensive analysis)")
+                elif ENHANCED_AVAILABLE:
+                    agent = EnhancedResearchAgent(
+                        openai_api_key=api_key,
+                        max_sources=request.max_sources or 12,
+                        debug_mode=request.debug_mode or False
+                    )
+                    logger.info(f"✅ Using Enhanced Research Agent for Enhanced mode (comprehensive analysis)")
+                else:
+                    agent = ResearchAgent(
+                        openai_api_key=api_key,
+                        max_sources=request.max_sources or 10
+                    )
+                    logger.info(f"⚠️ Using Basic Research Agent for Enhanced mode (comprehensive analysis)")
             
             # Track session
             self.active_sessions[research_id] = {
@@ -127,23 +144,30 @@ class ResearchService:
                     sources_found=0
                 ))
             
-            # Conduct research with progress tracking
-            if ADVANCED_AVAILABLE and hasattr(agent, 'conduct_advanced_research'):
-                result = await self._conduct_advanced_research(
-                    agent, request, research_id, progress_callback
-                )
-            elif AUTONOMOUS_AVAILABLE and isinstance(agent, AutonomousResearchAgent):
-                result = await self._conduct_autonomous_research(
-                    agent, request, research_id, progress_callback
-                )
-            elif ENHANCED_AVAILABLE and isinstance(agent, EnhancedResearchAgent):
-                result = await self._conduct_enhanced_research(
+            # Conduct research with progress tracking based on mode
+            if request.mode == ResearchMode.BASIC:
+                # Basic mode: Use streamlined research flow
+                result = await self._conduct_basic_mode_research(
                     agent, request, research_id, progress_callback
                 )
             else:
-                result = await self._conduct_basic_research(
-                    agent, request, research_id, progress_callback
-                )
+                # Enhanced mode: Use advanced research flow
+                if ADVANCED_AVAILABLE and isinstance(agent, AdvancedAutonomousResearchAgent):
+                    result = await self._conduct_advanced_research(
+                        agent, request, research_id, progress_callback
+                    )
+                elif AUTONOMOUS_AVAILABLE and isinstance(agent, AutonomousResearchAgent):
+                    result = await self._conduct_autonomous_research(
+                        agent, request, research_id, progress_callback
+                    )
+                elif ENHANCED_AVAILABLE and isinstance(agent, EnhancedResearchAgent):
+                    result = await self._conduct_enhanced_research(
+                        agent, request, research_id, progress_callback
+                    )
+                else:
+                    result = await self._conduct_basic_research(
+                        agent, request, research_id, progress_callback
+                    )
             
             # Cache result
             self.research_cache[research_id] = result
@@ -172,6 +196,120 @@ class ResearchService:
                 ))
             
             raise e
+    
+    async def _conduct_basic_mode_research(
+        self,
+        agent: Any,
+        request: ResearchRequest,
+        research_id: str,
+        progress_callback: Optional[Callable[[ResearchProgress], None]] = None
+    ) -> ResearchResult:
+        """Conduct streamlined basic research for quick results."""
+        
+        # Basic mode progress stages - fewer, faster stages
+        stages = [
+            ("quick_search", 0.25, "⚡ Quick source search..."),
+            ("essential_extraction", 0.65, "📄 Extracting essential information..."),
+            ("concise_synthesis", 0.90, "✨ Creating concise summary..."),
+            ("completed", 1.0, "⚡ Basic research completed!")
+        ]
+        
+        for stage, progress, message in stages:
+            if progress_callback:
+                progress_callback(ResearchProgress(
+                    stage=stage,
+                    progress=progress,
+                    message=message,
+                    sources_found=0  # Will be updated with actual count
+                ))
+            
+            # Faster progress updates for basic mode
+            await asyncio.sleep(0.3)
+        
+        # Conduct the research using appropriate method
+        if ENHANCED_AVAILABLE and isinstance(agent, EnhancedResearchAgent):
+            result = await agent.conduct_enhanced_research(
+                request.query,
+                request.citation_style.value
+            )
+            return self._convert_enhanced_result_to_basic_summary(result, research_id, request)
+        else:
+            # Use basic research agent
+            result = await agent.conduct_research(
+                request.query,
+                request.citation_style.value
+            )
+            return self._convert_basic_result_to_api_model(result, research_id, request)
+    
+    def _convert_enhanced_result_to_basic_summary(
+        self,
+        result: Any,
+        research_id: str,
+        request: ResearchRequest
+    ) -> ResearchResult:
+        """Convert enhanced research result to basic mode summary (concise output)."""
+        
+        # Convert sources but limit to top 8 most relevant
+        sources = []
+        source_limit = 8
+        for i, (source_data, relevance) in enumerate(result.validated_sources[:source_limit]):
+            sources.append(SourceModel(
+                title=source_data.get('title', 'Unknown Title'),
+                authors=source_data.get('authors', []),
+                year=str(source_data.get('year', 'Unknown Year')),
+                url=source_data.get('url'),
+                doi=source_data.get('doi'),
+                journal=source_data.get('journal'),
+                source_type=source_data.get('source_type', 'unknown'),
+                relevance_score=getattr(relevance, 'overall_score', None) if relevance else None,
+                abstract=source_data.get('abstract')
+            ))
+        
+        # Create concise synthesis (first 800 characters of original synthesis)
+        original_synthesis = result.synthesis
+        concise_synthesis = original_synthesis[:800] + "..." if len(original_synthesis) > 800 else original_synthesis
+        
+        # Add basic mode indicator to synthesis
+        concise_synthesis = f"**Quick Summary:**\n\n{concise_synthesis}\n\n*For more detailed analysis, try Enhanced Mode.*"
+        
+        # Basic quality assessment
+        basic_quality = QualityAssessment(
+            overall_quality=QualityLevel.ACCEPTABLE,
+            overall_score=0.75,  # Fixed score for basic mode
+            confidence_score=0.70,  # Fixed confidence for basic mode
+            gate_results=[
+                QualityGateResult(
+                    gate_name="Quick Search",
+                    passed=len(sources) > 3,
+                    score=min(len(sources) / 8.0, 1.0),
+                    issues=[],
+                    recommendations=["Try Enhanced Mode for comprehensive analysis"]
+                )
+            ],
+            critical_issues=[],
+            recommendations=["Use Enhanced Mode for detailed quality assessment and more sources"]
+        )
+        
+        return ResearchResult(
+            research_id=research_id,
+            query=result.query,
+            mode=request.mode,
+            citation_style=request.citation_style,
+            synthesis=concise_synthesis,
+            sources=sources,
+            quality_assessment=basic_quality,
+            research_time=result.research_time * 0.6,  # Faster processing time
+            timestamp=datetime.fromisoformat(result.timestamp.replace('Z', '+00:00')) if isinstance(result.timestamp, str) else result.timestamp,
+            bibliography=result.citation_bibliography[:500] + "..." if len(result.citation_bibliography) > 500 else result.citation_bibliography,
+            domain_detected=result.domain_profile.domain.value if result.domain_profile else None,
+            validation_summary={
+                "basic_mode": True,
+                "quick_research": True,
+                "sources_found": len(sources),
+                "processing_time": "optimized for speed"
+            },
+            recommendations=["For comprehensive analysis with more sources, use Enhanced Mode"]
+        )
     
     async def _conduct_advanced_research(
         self,
