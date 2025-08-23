@@ -27,6 +27,7 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
         self.research_subscriptions: Dict[str, Set[str]] = {}  # research_id -> set of client_ids
+        self.cached_results: Dict[str, dict] = {}  # client_id -> last research result
     
     async def connect(self, websocket: WebSocket, client_id: str):
         """Accept new WebSocket connection."""
@@ -46,16 +47,36 @@ class ConnectionManager:
         
         logger.info(f"🔌 WebSocket disconnected: {client_id}")
     
-    async def send_personal_message(self, message: dict, client_id: str):
-        """Send message to specific client."""
+    async def send_personal_message(self, message: dict, client_id: str, timeout: float = 5.0, retries: int = 3):
+        """Send message to specific client with retry logic."""
         if client_id in self.active_connections:
             websocket = self.active_connections[client_id]
             if websocket.client_state == WebSocketState.CONNECTED:
-                try:
-                    await websocket.send_text(json.dumps(message, default=str))
-                except Exception as e:
-                    logger.error(f"❌ Failed to send message to {client_id}: {e}")
-                    self.disconnect(client_id)
+                # Use longer timeout for research completion messages
+                if message.get("type") == "research_complete":
+                    timeout = 15.0  # Longer timeout for large result messages
+                
+                for attempt in range(retries):
+                    try:
+                        await asyncio.wait_for(
+                            websocket.send_text(json.dumps(message, default=str)),
+                            timeout=timeout
+                        )
+                        return  # Success - exit retry loop
+                    except (Exception, asyncio.TimeoutError) as e:
+                        logger.warning(f"⚠️ Failed to send message to {client_id} (attempt {attempt + 1}/{retries}): {e}")
+                        if attempt == retries - 1:  # Last attempt failed
+                            logger.error(f"❌ Failed to send message to {client_id} after {retries} attempts")
+                            self.disconnect(client_id)
+                            # Close the connection gracefully
+                            try:
+                                if websocket.client_state == WebSocketState.CONNECTED:
+                                    await websocket.close(code=1000, reason="Send timeout after retries")
+                            except Exception:
+                                pass  # Connection already closed
+                        else:
+                            # Wait before retry
+                            await asyncio.sleep(0.5 * (attempt + 1))
     
     async def broadcast_research_update(self, research_id: str, progress: ResearchProgress):
         """Broadcast research progress to all subscribed clients."""
@@ -140,10 +161,20 @@ async def research_websocket(websocket: WebSocket, client_id: str):
         )
         await manager.send_personal_message(welcome_msg.dict(), client_id)
         
+        # Check for cached results and resend if available
+        if client_id in manager.cached_results:
+            logger.info(f"🔄 Resending cached result to reconnected client: {client_id}")
+            await manager.send_personal_message(manager.cached_results[client_id], client_id)
+            # Clear cache after successful resend
+            del manager.cached_results[client_id]
+        
         while True:
-            # Receive message from client
+            # Receive message from client with timeout
             try:
-                data = await websocket.receive_text()
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=30.0  # 30 second timeout for receiving messages
+                )
                 message = json.loads(data)
                 
                 # Validate message format
@@ -165,11 +196,19 @@ async def research_websocket(websocket: WebSocket, client_id: str):
                 else:
                     await _send_error(client_id, f"Unknown message type: {message_type}")
                 
+            except asyncio.TimeoutError:
+                # Send ping to check if connection is still alive
+                try:
+                    await _handle_ping(client_id)
+                except Exception:
+                    logger.info(f"🔌 WebSocket timeout - disconnecting {client_id}")
+                    break
             except json.JSONDecodeError:
                 await _send_error(client_id, "Invalid JSON format")
             except Exception as e:
                 logger.error(f"❌ WebSocket message handling error: {e}")
                 await _send_error(client_id, f"Message handling error: {str(e)}")
+                break  # Exit the loop on unhandled errors
     
     except WebSocketDisconnect:
         logger.info(f"🔌 WebSocket disconnected normally: {client_id}")
@@ -217,12 +256,16 @@ async def _conduct_research_with_updates(client_id: str, request: ResearchReques
         # Conduct research with progress updates
         result = await research_service.conduct_research(request, progress_callback)
         
-        # Send completion message
-        await manager.send_personal_message({
+        # Cache the result for recovery
+        completion_message = {
             "type": "research_complete",
             "data": result.dict(),
             "timestamp": datetime.now().isoformat()
-        }, client_id)
+        }
+        manager.cached_results[client_id] = completion_message
+        
+        # Send completion message with retry logic
+        await manager.send_personal_message(completion_message, client_id)
         
         logger.info(f"✅ WebSocket research completed for {client_id}: {result.research_id}")
         

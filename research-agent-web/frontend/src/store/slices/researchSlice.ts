@@ -99,6 +99,12 @@ const researchSlice = createSlice({
       state.progress = undefined;
       state.isResearching = false;
     },
+
+    setCurrentResult: (state, action: PayloadAction<ResearchResult>) => {
+      state.currentResult = action.payload;
+      state.isResearching = false;
+      state.error = undefined;
+    },
     
     addToHistory: (state, action: PayloadAction<ResearchHistoryItem>) => {
       // Add to beginning of history and limit to 50 items
@@ -190,6 +196,7 @@ export const {
   stopResearch,
   clearError,
   clearCurrentResult,
+  setCurrentResult,
   addToHistory,
   updateCitationStyle,
   updateResearchMode,

@@ -52,7 +52,7 @@ class ExportRequest(BaseModel):
 # Response Models
 
 class SourceModel(BaseModel):
-    """Source information model."""
+    """Enhanced source information model with detailed metadata."""
     title: str
     authors: List[str]
     year: str
@@ -62,6 +62,35 @@ class SourceModel(BaseModel):
     source_type: str
     relevance_score: Optional[float] = None
     abstract: Optional[str] = None
+    
+    # Enhanced metadata for Google Gemini-style research
+    credibility_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Source credibility score")
+    citation_count: Optional[int] = Field(None, ge=0, description="Number of times cited")
+    publication_date: Optional[str] = None
+    publisher: Optional[str] = None
+    volume: Optional[str] = None
+    issue: Optional[str] = None
+    pages: Optional[str] = None
+    isbn: Optional[str] = None
+    language: Optional[str] = None
+    country: Optional[str] = None
+    
+    # Content analysis
+    key_excerpts: Optional[List[str]] = Field(None, description="Key quoted excerpts from source")
+    main_topics: Optional[List[str]] = Field(None, description="Main topics covered in source")
+    methodology: Optional[str] = None
+    sample_size: Optional[int] = None
+    study_type: Optional[str] = None
+    
+    # Quality indicators
+    peer_reviewed: Optional[bool] = None
+    open_access: Optional[bool] = None
+    quality_indicators: Optional[Dict[str, Any]] = None
+    
+    # Citation formatting
+    apa_citation: Optional[str] = None
+    mla_citation: Optional[str] = None
+    ieee_citation: Optional[str] = None
 
 class QualityGateResult(BaseModel):
     """Quality gate result model."""
@@ -89,7 +118,7 @@ class ResearchProgress(BaseModel):
     estimated_completion: Optional[datetime] = None
 
 class ResearchResult(BaseModel):
-    """Complete research result model."""
+    """Complete research result model with enhanced synthesis."""
     research_id: str
     query: str
     mode: ResearchMode
@@ -101,11 +130,28 @@ class ResearchResult(BaseModel):
     timestamp: datetime
     bibliography: str
     
+    # Enhanced synthesis features (Gemini Deep Research style)
+    executive_summary: Optional[str] = Field(None, description="Brief executive summary")
+    detailed_sections: Optional[List[Dict[str, str]]] = Field(None, description="Detailed sections with inline citations")
+    key_findings: Optional[List[str]] = Field(None, description="Key findings with source references")
+    conflicting_information: Optional[List[Dict[str, Any]]] = Field(None, description="Areas where sources disagree")
+    confidence_levels: Optional[Dict[str, float]] = Field(None, description="Confidence levels for different claims")
+    
+    # Source organization
+    primary_sources: Optional[List[str]] = Field(None, description="IDs of primary/authoritative sources")
+    supporting_sources: Optional[List[str]] = Field(None, description="IDs of supporting evidence sources")
+    contradictory_sources: Optional[List[str]] = Field(None, description="Sources with conflicting information")
+    
     # Enhanced mode specific fields
     domain_detected: Optional[str] = None
     validation_summary: Optional[Dict[str, Any]] = None
     cross_validation_result: Optional[Dict[str, Any]] = None
     recommendations: Optional[List[str]] = None
+    
+    # Research insights
+    research_gaps: Optional[List[str]] = Field(None, description="Identified research gaps")
+    future_research_directions: Optional[List[str]] = Field(None, description="Suggested future research")
+    practical_implications: Optional[List[str]] = Field(None, description="Practical applications")
 
 class ResearchSession(BaseModel):
     """Research session information."""

@@ -1,326 +1,610 @@
 """
-AI-Driven Relevance Judge
-Uses GPT-4o mini to evaluate the relevance of research papers to user queries in real-time.
-No hardcoded thresholds - purely AI-driven relevance assessment.
+AI Relevance Judge
+Intelligent assessment of source relevance to research queries using GPT-4o mini.
 """
 
 import openai
 import asyncio
-import json
 import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+import re
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class RelevanceAssessment:
-    """AI assessment of paper relevance."""
+    """Assessment of source relevance to a query."""
+    source_id: str
+    query: str
     relevance_score: float  # 0.0 to 1.0
-    is_relevant: bool
+    relevance_category: str  # 'highly_relevant', 'maybe_relevant', 'not_relevant'
     explanation: str
-    key_points: List[str]
-    missing_aspects: List[str]
-    recommendation: str  # keep, discard, maybe
     confidence: float
+    assessment_factors: Dict[str, float]
+    timestamp: str
+
+
+@dataclass
+class SourceContext:
+    """Context information about a source for relevance assessment."""
+    title: str
+    abstract: str
+    authors: List[str]
+    year: int
+    venue: str
+    keywords: List[str]
+    citations: int
+    source_type: str
 
 
 class AIRelevanceJudge:
     """
-    Intelligent relevance judge that uses GPT-4o mini to evaluate
-    whether papers actually address the user's research question.
+    AI-powered relevance judge that evaluates source relevance to research queries
+    using intelligent analysis and contextual understanding.
     """
     
-    def __init__(self, openai_api_key: str):
+    def __init__(self, openai_api_key: str, debug_mode: bool = False):
+        if not openai_api_key or not openai_api_key.strip():
+            raise ValueError("OpenAI API key is required")
+        
         self.openai_client = openai.OpenAI(api_key=openai_api_key)
-        self.relevance_threshold = 0.6  # AI will set this dynamically
-        logger.info("🔍 AI Relevance Judge initialized with GPT-4o mini")
+        self.debug_mode = debug_mode
+        
+        # Relevance scoring weights
+        self.scoring_weights = {
+            'title_relevance': 0.25,
+            'abstract_relevance': 0.35,
+            'keyword_match': 0.15,
+            'temporal_relevance': 0.10,
+            'authority_score': 0.10,
+            'citation_relevance': 0.05
+        }
+        
+        # Relevance thresholds
+        self.relevance_thresholds = {
+            'highly_relevant': 0.7,
+            'maybe_relevant': 0.4,
+            'not_relevant': 0.0
+        }
+        
+        logger.info("⚖️ AI Relevance Judge initialized")
     
-    async def evaluate_paper_relevance(self, 
-                                     query: str, 
-                                     paper_title: str, 
-                                     paper_abstract: str = "", 
-                                     paper_metadata: Dict[str, Any] = None) -> RelevanceAssessment:
+    async def assess_relevance(self, 
+                             query: str, 
+                             source_context: SourceContext) -> RelevanceAssessment:
         """
-        Use AI to evaluate whether a paper is relevant to the research query.
-        
-        Args:
-            query: Original user research question
-            paper_title: Title of the paper
-            paper_abstract: Abstract/summary of the paper
-            paper_metadata: Additional paper metadata
-            
-        Returns:
-            RelevanceAssessment with AI evaluation
-        """
-        logger.info(f"🔍 AI evaluating relevance: {paper_title[:50]}...")
-        
-        # Prepare paper content for analysis
-        paper_content = f"Title: {paper_title}"
-        if paper_abstract:
-            paper_content += f"\n\nAbstract: {paper_abstract}"
-        if paper_metadata:
-            if paper_metadata.get("authors"):
-                paper_content += f"\nAuthors: {', '.join(paper_metadata['authors'][:3])}"
-            if paper_metadata.get("categories"):
-                paper_content += f"\nCategories: {paper_metadata['categories']}"
-        
-        relevance_prompt = f"""You are an expert research evaluator. Determine if this paper is relevant to the user's research question.
-
-USER'S RESEARCH QUESTION: "{query}"
-
-PAPER TO EVALUATE:
-{paper_content}
-
-Please evaluate this paper and provide a JSON response:
-{{
-    "relevance_score": 0.85,
-    "is_relevant": true,
-    "explanation": "Clear explanation of why this paper is/isn't relevant",
-    "key_points": ["Point 1 that makes it relevant", "Point 2", "Point 3"],
-    "missing_aspects": ["What aspects of the query this paper doesn't address"],
-    "recommendation": "keep|discard|maybe",
-    "confidence": 0.9
-}}
-
-EVALUATION CRITERIA:
-1. Does the paper directly address the user's question?
-2. Does it contain information that would help answer the query?
-3. Is it about the same topic/domain as the query?
-4. Would a researcher studying this topic find this paper useful?
-
-SCORING GUIDELINES:
-- 0.9-1.0: Directly answers the query, highly relevant
-- 0.7-0.8: Addresses important aspects of the query  
-- 0.5-0.6: Related topic but doesn't directly answer
-- 0.3-0.4: Tangentially related, some useful context
-- 0.0-0.2: Not relevant, different topic
-
-RECOMMENDATIONS (be less conservative for technical queries):
-- "keep": Score ≥ 0.65 - Relevant and useful for the research question
-- "maybe": Score 0.4-0.64 - Some relevance, could provide context
-- "discard": Score < 0.4 - Not relevant to the query
-
-FOR TECHNICAL/OPTIMIZATION QUERIES:
-- Even if paper doesn't mention specific optimizers, if it discusses deep learning training, optimization techniques, or comparative studies, it may still be valuable
-- Papers about specific neural network architectures (CNNs, RNNs) that discuss training are relevant to optimizer queries
-- Survey papers and comparative studies should be rated higher for "latest" queries
-
-Be honest and critical. If the paper doesn't actually address the query, say so clearly.
-
-Respond with only the JSON, no other text."""
-
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert research evaluator who honestly assesses paper relevance. Always respond with valid JSON."},
-                    {"role": "user", "content": relevance_prompt}
-                ],
-                max_tokens=800,
-                temperature=0.1  # Low temperature for consistent evaluation
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            
-            # Parse JSON response
-            try:
-                assessment_data = json.loads(response_text)
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ Failed to parse AI relevance assessment: {e}")
-                return self._create_fallback_assessment(query, paper_title, 0.3)
-            
-            # Create RelevanceAssessment object
-            assessment = RelevanceAssessment(
-                relevance_score=assessment_data.get("relevance_score", 0.0),
-                is_relevant=assessment_data.get("is_relevant", False),
-                explanation=assessment_data.get("explanation", "No explanation provided"),
-                key_points=assessment_data.get("key_points", []),
-                missing_aspects=assessment_data.get("missing_aspects", []),
-                recommendation=assessment_data.get("recommendation", "discard"),
-                confidence=assessment_data.get("confidence", 0.5)
-            )
-            
-            logger.info(f"✅ AI relevance score: {assessment.relevance_score:.2f} ({assessment.recommendation})")
-            return assessment
-            
-        except Exception as e:
-            logger.error(f"❌ AI relevance evaluation failed: {e}")
-            return self._create_fallback_assessment(query, paper_title, 0.3)
-    
-    async def batch_evaluate_papers(self, 
-                                  query: str, 
-                                  papers: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], RelevanceAssessment]]:
-        """
-        Evaluate multiple papers for relevance in batch.
+        Assess the relevance of a source to a research query.
         
         Args:
             query: Research query
-            papers: List of paper dictionaries
+            source_context: Source information for assessment
             
         Returns:
-            List of (paper, assessment) tuples
+            RelevanceAssessment with detailed analysis
         """
-        logger.info(f"🔍 AI evaluating {len(papers)} papers for relevance")
-        
-        evaluations = []
-        for paper in papers:
-            title = paper.get("title", "Unknown Title")
-            abstract = paper.get("abstract", paper.get("summary", ""))
-            
-            assessment = await self.evaluate_paper_relevance(
-                query=query,
-                paper_title=title,
-                paper_abstract=abstract,
-                paper_metadata=paper
-            )
-            
-            evaluations.append((paper, assessment))
-            
-            # Brief pause to avoid rate limiting
-            await asyncio.sleep(0.5)
-        
-        # Sort by relevance score
-        evaluations.sort(key=lambda x: x[1].relevance_score, reverse=True)
-        
-        relevant_count = sum(1 for _, assessment in evaluations if assessment.is_relevant)
-        logger.info(f"✅ AI found {relevant_count}/{len(papers)} relevant papers")
-        
-        return evaluations
-    
-    def _create_fallback_assessment(self, query: str, paper_title: str, score: float) -> RelevanceAssessment:
-        """Create fallback assessment when AI evaluation fails."""
-        logger.warning("🆘 Using fallback relevance assessment")
-        
-        return RelevanceAssessment(
-            relevance_score=score,
-            is_relevant=score > 0.5,
-            explanation=f"Fallback assessment for '{paper_title}' - AI evaluation failed",
-            key_points=["Unable to perform detailed analysis"],
-            missing_aspects=["Unknown due to evaluation failure"],
-            recommendation="maybe",
-            confidence=0.2
-        )
-    
-    async def generate_search_feedback(self, 
-                                     query: str, 
-                                     evaluations: List[Tuple[Dict[str, Any], RelevanceAssessment]]) -> Dict[str, Any]:
-        """
-        Analyze the relevance evaluations to provide feedback on search strategy.
-        
-        Args:
-            query: Original research query
-            evaluations: List of (paper, assessment) tuples
-            
-        Returns:
-            Search feedback and suggestions for improvement
-        """
-        if not evaluations:
-            return {"status": "no_papers", "message": "No papers found to evaluate"}
-        
-        relevant_papers = [e for e in evaluations if e[1].is_relevant]
-        avg_relevance = sum(e[1].relevance_score for e in evaluations) / len(evaluations)
-        
-        # Generate AI feedback on search quality
-        feedback_prompt = f"""Analyze these search results and provide feedback on search strategy:
-
-ORIGINAL QUERY: "{query}"
-
-SEARCH RESULTS ANALYSIS:
-- Total papers found: {len(evaluations)}
-- Relevant papers: {len(relevant_papers)}
-- Average relevance score: {avg_relevance:.2f}
-
-TOP RESULTS:
-{chr(10).join([f"- {e[0].get('title', 'Unknown')}: {e[1].relevance_score:.2f} ({e[1].recommendation})" for e in evaluations[:3]])}
-
-Provide JSON feedback:
-{{
-    "search_quality": "excellent|good|poor|very_poor",
-    "main_issues": ["issue1", "issue2"],
-    "suggested_improvements": ["suggestion1", "suggestion2"],
-    "alternative_search_terms": ["term1", "term2", "term3"],
-    "search_strategy_advice": "What to do differently next time"
-}}"""
-
         try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert at analyzing search results and improving search strategies."},
-                    {"role": "user", "content": feedback_prompt}
-                ],
-                max_tokens=600,
-                temperature=0.2
+            logger.debug(f"🔍 Assessing relevance for: {source_context.title[:50]}...")
+            
+            # Multi-factor relevance assessment
+            assessment_factors = await self._comprehensive_assessment(query, source_context)
+            
+            # Calculate overall relevance score
+            relevance_score = self._calculate_weighted_score(assessment_factors)
+            
+            # Determine relevance category
+            relevance_category = self._categorize_relevance(relevance_score)
+            
+            # Generate explanation
+            explanation = await self._generate_explanation(
+                query, source_context, relevance_score, assessment_factors
             )
             
-            feedback_data = json.loads(response.choices[0].message.content.strip())
-            feedback_data["statistics"] = {
-                "total_papers": len(evaluations),
-                "relevant_papers": len(relevant_papers),
-                "average_relevance": avg_relevance
-            }
+            # Calculate confidence in assessment
+            confidence = self._calculate_confidence(assessment_factors, source_context)
             
-            return feedback_data
+            assessment = RelevanceAssessment(
+                source_id=f"{source_context.title[:20]}_{source_context.year}",
+                query=query,
+                relevance_score=relevance_score,
+                relevance_category=relevance_category,
+                explanation=explanation,
+                confidence=confidence,
+                assessment_factors=assessment_factors,
+                timestamp=datetime.now().isoformat()
+            )
+            
+            if self.debug_mode:
+                logger.debug(f"📊 Relevance: {relevance_score:.2f} ({relevance_category})")
+            
+            return assessment
             
         except Exception as e:
-            logger.error(f"❌ Search feedback generation failed: {e}")
-            return {
-                "search_quality": "unknown",
-                "main_issues": ["Unable to analyze search results"],
-                "suggested_improvements": ["Try different search terms"],
-                "alternative_search_terms": [],
-                "search_strategy_advice": "AI feedback unavailable"
-            }
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    import os
+            logger.error(f"❌ Relevance assessment failed: {e}")
+            return self._create_fallback_assessment(query, source_context)
     
-    async def test_relevance_judge():
-        # Get API key
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key or api_key == "sk-test-key-for-research-demo":
-            print("⚠️ Please set a real OPENAI_API_KEY for testing")
-            return
+    async def batch_assess_relevance(self, 
+                                   query: str, 
+                                   sources: List[SourceContext]) -> List[RelevanceAssessment]:
+        """
+        Assess relevance for multiple sources in parallel.
         
-        judge = AIRelevanceJudge(api_key)
+        Args:
+            query: Research query
+            sources: List of source contexts
+            
+        Returns:
+            List of relevance assessments
+        """
+        logger.info(f"⚖️ Batch assessing {len(sources)} sources for relevance")
         
-        # Test query and papers
-        query = "explain the optimizers used in CNNs and RNNs"
-        
-        test_papers = [
-            {
-                "title": "Adam: A Method for Stochastic Optimization",
-                "abstract": "We introduce Adam, an algorithm for first-order gradient-based optimization of stochastic objective functions, based on adaptive estimates of lower-order moments.",
-                "authors": ["Diederik P. Kingma", "Jimmy Ba"]
-            },
-            {
-                "title": "Interleaved Group Convolutions for Deep Neural Networks",
-                "abstract": "We present a simple and effective architecture design technique for convolutional neural networks.",
-                "authors": ["Some Author"]
-            }
+        # Create assessment tasks
+        assessment_tasks = [
+            self.assess_relevance(query, source)
+            for source in sources
         ]
         
-        print(f"🧪 Testing relevance evaluation for: {query}")
-        print("=" * 70)
-        
-        for paper in test_papers:
-            assessment = await judge.evaluate_paper_relevance(
-                query=query,
-                paper_title=paper["title"],
-                paper_abstract=paper["abstract"],
-                paper_metadata=paper
+        try:
+            # Execute assessments in parallel
+            assessments = await asyncio.gather(*assessment_tasks, return_exceptions=True)
+            
+            # Filter out exceptions
+            valid_assessments = []
+            for assessment in assessments:
+                if isinstance(assessment, RelevanceAssessment):
+                    valid_assessments.append(assessment)
+                else:
+                    logger.warning(f"Assessment failed: {assessment}")
+            
+            # Sort by relevance score
+            valid_assessments.sort(key=lambda x: x.relevance_score, reverse=True)
+            
+            logger.info(f"✅ Completed {len(valid_assessments)} relevance assessments")
+            return valid_assessments
+            
+        except Exception as e:
+            logger.error(f"❌ Batch assessment failed: {e}")
+            return []
+    
+    async def _comprehensive_assessment(self, 
+                                      query: str, 
+                                      source: SourceContext) -> Dict[str, float]:
+        """Perform comprehensive multi-factor relevance assessment."""
+        try:
+            # Parallel assessment of different factors
+            assessment_tasks = [
+                self._assess_title_relevance(query, source.title),
+                self._assess_abstract_relevance(query, source.abstract),
+                self._assess_keyword_match(query, source),
+                self._assess_temporal_relevance(query, source.year),
+                self._assess_authority_score(source),
+                self._assess_citation_relevance(query, source)
+            ]
+            
+            results = await asyncio.gather(*assessment_tasks)
+            
+            return {
+                'title_relevance': results[0],
+                'abstract_relevance': results[1],
+                'keyword_match': results[2],
+                'temporal_relevance': results[3],
+                'authority_score': results[4],
+                'citation_relevance': results[5]
+            }
+            
+        except Exception as e:
+            logger.error(f"Comprehensive assessment failed: {e}")
+            return {factor: 0.5 for factor in self.scoring_weights.keys()}
+    
+    async def _assess_title_relevance(self, query: str, title: str) -> float:
+        """Assess relevance based on title content."""
+        try:
+            prompt = f"""
+            Assess how relevant this paper title is to the research query.
+            
+            Query: "{query}"
+            Title: "{title}"
+            
+            Consider:
+            - Direct topic alignment
+            - Keyword overlap
+            - Conceptual relevance
+            - Specificity match
+            
+            Rate relevance from 0.0 (not relevant) to 1.0 (highly relevant).
+            Return only the numeric score.
+            """
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=50,
+                temperature=0.1
             )
             
-            print(f"\nPaper: {paper['title']}")
-            print(f"Relevance Score: {assessment.relevance_score:.2f}")
-            print(f"Recommendation: {assessment.recommendation}")
-            print(f"Explanation: {assessment.explanation}")
-            print(f"Key Points: {assessment.key_points}")
+            score_text = response.choices[0].message.content.strip()
+            score = float(re.findall(r'0\.\d+|1\.0|0|1', score_text)[0])
+            return max(0.0, min(1.0, score))
+            
+        except (ValueError, IndexError):
+            # Fallback to keyword matching
+            return self._simple_keyword_overlap(query, title)
+        except Exception as e:
+            logger.warning(f"Title relevance assessment failed: {e}")
+            return 0.5
     
-    # Run test
+    async def _assess_abstract_relevance(self, query: str, abstract: str) -> float:
+        """Assess relevance based on abstract content."""
+        if not abstract or abstract == "No abstract available":
+            return 0.3  # Reduced score for missing abstract
+        
+        try:
+            # Truncate very long abstracts
+            truncated_abstract = abstract[:800] if len(abstract) > 800 else abstract
+            
+            prompt = f"""
+            Assess how relevant this paper abstract is to the research query.
+            
+            Query: "{query}"
+            Abstract: "{truncated_abstract}"
+            
+            Consider:
+            - Topic alignment
+            - Research focus overlap
+            - Methodological relevance
+            - Problem domain match
+            - Solution approach relevance
+            
+            Rate relevance from 0.0 (not relevant) to 1.0 (highly relevant).
+            Return only the numeric score.
+            """
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=50,
+                temperature=0.1
+            )
+            
+            score_text = response.choices[0].message.content.strip()
+            score = float(re.findall(r'0\.\d+|1\.0|0|1', score_text)[0])
+            return max(0.0, min(1.0, score))
+            
+        except (ValueError, IndexError):
+            # Fallback to keyword matching
+            return self._simple_keyword_overlap(query, abstract)
+        except Exception as e:
+            logger.warning(f"Abstract relevance assessment failed: {e}")
+            return 0.5
+    
+    async def _assess_keyword_match(self, query: str, source: SourceContext) -> float:
+        """Assess relevance based on keyword matching."""
+        try:
+            # Extract keywords from query
+            query_keywords = self._extract_keywords(query)
+            
+            # Combine source keywords with title words
+            source_keywords = source.keywords + self._extract_keywords(source.title)
+            
+            # Calculate overlap
+            if not query_keywords or not source_keywords:
+                return 0.3
+            
+            # Convert to lowercase for comparison
+            query_set = set(word.lower() for word in query_keywords)
+            source_set = set(word.lower() for word in source_keywords)
+            
+            # Calculate Jaccard similarity
+            intersection = query_set.intersection(source_set)
+            union = query_set.union(source_set)
+            
+            if not union:
+                return 0.0
+            
+            jaccard_score = len(intersection) / len(union)
+            
+            # Also check for partial matches
+            partial_matches = 0
+            for q_word in query_keywords:
+                for s_word in source_keywords:
+                    if (q_word.lower() in s_word.lower() or 
+                        s_word.lower() in q_word.lower()) and len(q_word) > 3:
+                        partial_matches += 1
+                        break
+            
+            partial_score = partial_matches / len(query_keywords) if query_keywords else 0
+            
+            # Combine scores
+            final_score = (jaccard_score * 0.7) + (partial_score * 0.3)
+            return min(1.0, final_score)
+            
+        except Exception as e:
+            logger.warning(f"Keyword matching failed: {e}")
+            return 0.3
+    
+    async def _assess_temporal_relevance(self, query: str, year: int) -> float:
+        """Assess temporal relevance based on query requirements and publication year."""
+        try:
+            current_year = datetime.now().year
+            
+            # Check for temporal indicators in query
+            query_lower = query.lower()
+            
+            if any(word in query_lower for word in ['recent', 'latest', 'current', '2023', '2024']):
+                # Recent research preferred
+                if year >= current_year - 1:
+                    return 1.0
+                elif year >= current_year - 3:
+                    return 0.8
+                elif year >= current_year - 5:
+                    return 0.6
+                else:
+                    return 0.3
+            
+            elif any(word in query_lower for word in ['historical', 'evolution', 'development']):
+                # Historical perspective preferred
+                age = current_year - year
+                if age >= 10:
+                    return 1.0
+                elif age >= 5:
+                    return 0.8
+                else:
+                    return 0.6
+            
+            else:
+                # General temporal relevance
+                age = current_year - year
+                if age <= 2:
+                    return 1.0
+                elif age <= 5:
+                    return 0.9
+                elif age <= 10:
+                    return 0.7
+                elif age <= 15:
+                    return 0.5
+                else:
+                    return 0.3
+                    
+        except Exception as e:
+            logger.warning(f"Temporal assessment failed: {e}")
+            return 0.6
+    
+    async def _assess_authority_score(self, source: SourceContext) -> float:
+        """Assess source authority based on venue and publication context."""
+        try:
+            score = 0.0
+            
+            # Venue assessment
+            venue_lower = source.venue.lower()
+            
+            # Top-tier venues
+            if any(top_venue in venue_lower for top_venue in 
+                  ['nature', 'science', 'cell', 'pnas', 'nejm']):
+                score += 0.4
+            
+            # High-quality conferences
+            elif any(conf in venue_lower for conf in 
+                    ['neurips', 'icml', 'iclr', 'acl', 'emnlp', 'cvpr', 'iccv']):
+                score += 0.35
+            
+            # Reputable journals
+            elif any(journal_type in venue_lower for journal_type in 
+                    ['journal', 'proceedings', 'transactions']):
+                score += 0.3
+            
+            # ArXiv and preprints
+            elif 'arxiv' in venue_lower or 'preprint' in venue_lower:
+                score += 0.2
+            
+            # Unknown venue
+            else:
+                score += 0.1
+            
+            # Author count (more authors might indicate collaborative work)
+            author_count = len(source.authors)
+            if author_count >= 5:
+                score += 0.1
+            elif author_count >= 3:
+                score += 0.05
+            
+            # Publication type bonus
+            if source.source_type == 'semantic_scholar':
+                score += 0.1  # Generally higher quality curation
+            
+            return min(1.0, score)
+            
+        except Exception as e:
+            logger.warning(f"Authority assessment failed: {e}")
+            return 0.5
+    
+    async def _assess_citation_relevance(self, query: str, source: SourceContext) -> float:
+        """Assess relevance based on citation metrics."""
+        try:
+            citations = source.citations
+            year = source.year
+            current_year = datetime.now().year
+            
+            # Age-adjusted citation score
+            age = max(1, current_year - year)
+            citations_per_year = citations / age
+            
+            # Citation score thresholds (age-adjusted)
+            if citations_per_year >= 50:
+                return 1.0
+            elif citations_per_year >= 20:
+                return 0.8
+            elif citations_per_year >= 10:
+                return 0.6
+            elif citations_per_year >= 5:
+                return 0.4
+            elif citations > 0:
+                return 0.2
+            else:
+                return 0.1  # New papers without citations yet
+                
+        except Exception as e:
+            logger.warning(f"Citation assessment failed: {e}")
+            return 0.3
+    
+    def _calculate_weighted_score(self, factors: Dict[str, float]) -> float:
+        """Calculate weighted relevance score from assessment factors."""
+        weighted_score = 0.0
+        
+        for factor, score in factors.items():
+            if factor in self.scoring_weights:
+                weighted_score += score * self.scoring_weights[factor]
+        
+        return max(0.0, min(1.0, weighted_score))
+    
+    def _categorize_relevance(self, score: float) -> str:
+        """Categorize relevance score into discrete categories."""
+        if score >= self.relevance_thresholds['highly_relevant']:
+            return 'highly_relevant'
+        elif score >= self.relevance_thresholds['maybe_relevant']:
+            return 'maybe_relevant'
+        else:
+            return 'not_relevant'
+    
+    async def _generate_explanation(self, 
+                                  query: str, 
+                                  source: SourceContext, 
+                                  score: float, 
+                                  factors: Dict[str, float]) -> str:
+        """Generate explanation for the relevance assessment."""
+        try:
+            top_factors = sorted(factors.items(), key=lambda x: x[1], reverse=True)[:3]
+            factor_descriptions = []
+            
+            for factor, value in top_factors:
+                if value > 0.7:
+                    strength = "Strong"
+                elif value > 0.4:
+                    strength = "Moderate"
+                else:
+                    strength = "Weak"
+                
+                factor_name = factor.replace('_', ' ').title()
+                factor_descriptions.append(f"{strength} {factor_name.lower()} ({value:.2f})")
+            
+            explanation = f"Relevance score: {score:.2f}. "
+            explanation += f"Key factors: {', '.join(factor_descriptions)}. "
+            
+            if score >= 0.7:
+                explanation += "This source appears highly relevant to the research query."
+            elif score >= 0.4:
+                explanation += "This source may be relevant with some useful information."
+            else:
+                explanation += "This source has limited relevance to the research query."
+            
+            return explanation
+            
+        except Exception as e:
+            logger.warning(f"Explanation generation failed: {e}")
+            return f"Relevance score: {score:.2f}"
+    
+    def _calculate_confidence(self, 
+                            factors: Dict[str, float], 
+                            source: SourceContext) -> float:
+        """Calculate confidence in the relevance assessment."""
+        confidence = 0.5  # Base confidence
+        
+        # Factor score consistency
+        factor_values = list(factors.values())
+        if factor_values:
+            std_dev = (sum((x - sum(factor_values)/len(factor_values))**2 for x in factor_values) / len(factor_values))**0.5
+            consistency_bonus = max(0, 0.3 - std_dev)
+            confidence += consistency_bonus
+        
+        # Abstract availability
+        if source.abstract and source.abstract != "No abstract available":
+            confidence += 0.1
+        
+        # Source metadata completeness
+        if source.authors and source.venue:
+            confidence += 0.1
+        
+        # Recent publication (more confidence in assessment)
+        current_year = datetime.now().year
+        if current_year - source.year <= 5:
+            confidence += 0.1
+        
+        return max(0.0, min(1.0, confidence))
+    
+    def _simple_keyword_overlap(self, query: str, text: str) -> float:
+        """Simple keyword overlap calculation as fallback."""
+        query_words = set(self._extract_keywords(query))
+        text_words = set(self._extract_keywords(text))
+        
+        if not query_words or not text_words:
+            return 0.3
+        
+        overlap = len(query_words.intersection(text_words))
+        return min(1.0, overlap / len(query_words))
+    
+    def _extract_keywords(self, text: str) -> List[str]:
+        """Extract meaningful keywords from text."""
+        # Simple keyword extraction
+        words = re.findall(r'\b[a-zA-Z]{3,}\b', text.lower())
+        
+        # Filter out common stop words
+        stop_words = {'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'use', 'way', 'she', 'many', 'oil', 'sit', 'set', 'run', 'eat', 'far', 'sea', 'eye', 'bed', 'own', 'say', 'too', 'any', 'try', 'ask', 'man', 'end', 'why', 'let', 'put', 'big', 'got', 'make', 'come', 'here', 'this', 'that', 'what', 'when', 'where', 'which', 'with', 'have', 'from', 'they', 'know', 'want', 'been', 'good', 'much', 'some', 'time', 'very', 'when', 'come', 'here', 'just', 'like', 'long', 'make', 'many', 'over', 'such', 'take', 'than', 'them', 'well', 'were'}
+        
+        return [word for word in words if word not in stop_words and len(word) > 3]
+    
+    def _create_fallback_assessment(self, 
+                                  query: str, 
+                                  source: SourceContext) -> RelevanceAssessment:
+        """Create fallback assessment when main assessment fails."""
+        # Simple keyword-based assessment
+        fallback_score = self._simple_keyword_overlap(query, source.title + " " + source.abstract)
+        
+        return RelevanceAssessment(
+            source_id=f"{source.title[:20]}_{source.year}",
+            query=query,
+            relevance_score=fallback_score,
+            relevance_category=self._categorize_relevance(fallback_score),
+            explanation=f"Fallback assessment based on keyword overlap: {fallback_score:.2f}",
+            confidence=0.3,
+            assessment_factors={'keyword_match': fallback_score},
+            timestamp=datetime.now().isoformat()
+        )
+
+
+async def test_relevance_judge():
+    """Test function for the relevance judge."""
+    import os
+    
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print("Please set OPENAI_API_KEY environment variable")
+        return
+    
+    judge = AIRelevanceJudge(api_key, debug_mode=True)
+    
+    query = "machine learning transformer architectures for natural language processing"
+    
+    # Create test source
+    test_source = SourceContext(
+        title="Attention Is All You Need",
+        abstract="The dominant sequence transduction models are based on complex recurrent or convolutional neural networks...",
+        authors=["Ashish Vaswani", "Noam Shazeer"],
+        year=2017,
+        venue="NIPS",
+        keywords=["transformer", "attention", "neural networks"],
+        citations=45000,
+        source_type="semantic_scholar"
+    )
+    
+    print(f"🔍 Testing relevance assessment for: {query}")
+    assessment = await judge.assess_relevance(query, test_source)
+    
+    print(f"\nRelevance Score: {assessment.relevance_score:.2f}")
+    print(f"Category: {assessment.relevance_category}")
+    print(f"Confidence: {assessment.confidence:.2f}")
+    print(f"Explanation: {assessment.explanation}")
+
+
+if __name__ == "__main__":
     asyncio.run(test_relevance_judge())

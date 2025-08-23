@@ -26,7 +26,7 @@ A modern, interactive web application for conducting AI-powered research with re
 - **TypeScript**: Full type safety and developer experience
 - **Modern Stack**: React 18, Redux Toolkit, Tailwind CSS
 - **WebSocket Support**: Real-time communication for live updates
-- **Docker Ready**: Complete containerization for easy deployment
+- **Easy Setup**: Simple development and deployment process
 
 ## 🚀 Quick Start
 
@@ -44,19 +44,7 @@ cd research-agent-web
 export OPENAI_API_KEY="your-openai-api-key-here"
 ```
 
-### 2. Development with Docker (Recommended)
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Access the application
-open http://localhost:3000
-```
-
-### 3. Manual Development Setup
+### 2. Development Setup
 
 #### Backend Setup
 ```bash
@@ -186,16 +174,7 @@ python test_integration.py
 
 ## 🚀 Deployment
 
-### Production with Docker
-```bash
-# Build and deploy
-docker-compose -f docker-compose.prod.yml up -d
-
-# Scale services
-docker-compose up --scale backend=2 frontend=1
-```
-
-### Manual Production Deployment
+### Production Deployment
 
 #### Backend Production
 ```bash
@@ -304,8 +283,11 @@ MIT License - Use freely for research and educational purposes.
 **Ready to start researching?**
 
 ```bash
-docker-compose up -d
-open http://localhost:3000
+# Start backend
+cd backend && python run_dev.py &
+
+# Start frontend  
+cd frontend && npm run dev
 ```
 
 *Transform your research workflow with AI-powered intelligence and beautiful, modern interface.*

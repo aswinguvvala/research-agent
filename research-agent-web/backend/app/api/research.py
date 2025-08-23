@@ -233,6 +233,42 @@ async def get_research_settings() -> Dict[str, Any]:
         "openai_configured": bool(os.getenv("OPENAI_API_KEY"))
     }
 
+@router.post("/recover-session")
+async def recover_research_session(request: ResearchRequest) -> Dict[str, Any]:
+    """
+    Attempt to recover a research session based on the request.
+    This checks if there's a cached result for a similar query.
+    """
+    try:
+        # Check if there's a recent result for this exact query
+        for research_id, cached_result in research_service.research_cache.items():
+            if (cached_result.query.lower().strip() == request.query.lower().strip() and
+                cached_result.mode == request.mode):
+                
+                # Check if the result is recent (within last 24 hours)
+                time_diff = datetime.now() - cached_result.timestamp
+                if time_diff.total_seconds() < 24 * 60 * 60:  # 24 hours
+                    logger.info(f"🔄 Recovered cached research result: {research_id}")
+                    return {
+                        "recovered": True,
+                        "research_id": research_id,
+                        "result": cached_result,
+                        "message": "Found recent research results for this query"
+                    }
+        
+        # No recovery possible
+        return {
+            "recovered": False,
+            "message": "No recent research results found for this query"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Session recovery error: {e}")
+        return {
+            "recovered": False,
+            "message": f"Session recovery failed: {str(e)}"
+        }
+
 # Helper functions
 
 def _generate_markdown_report(result: ResearchResult, include_metadata: bool = True) -> str:

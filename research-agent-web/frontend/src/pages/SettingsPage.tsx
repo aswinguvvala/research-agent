@@ -30,7 +30,16 @@ const SettingsPage: React.FC = () => {
     try {
       setIsLoading(true);
       const settings = await apiService.getResearchSettings();
-      setBackendSettings(settings);
+      // Map the response to our BackendSettings interface
+      const mappedSettings: BackendSettings = {
+        max_sources: 10, // Default value
+        relevance_threshold: settings.relevance_threshold,
+        content_validation_threshold: settings.content_validation_threshold,
+        consensus_threshold: settings.consensus_threshold,
+        enhanced_mode_available: (settings as any).enhanced_mode_available || true,
+        openai_configured: (settings as any).openai_configured || true,
+      };
+      setBackendSettings(mappedSettings);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings');

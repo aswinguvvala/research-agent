@@ -53,6 +53,35 @@ export interface SourceModel {
   source_type: string;
   relevance_score?: number;
   abstract?: string;
+  
+  // Enhanced metadata for Google Gemini-style research
+  credibility_score?: number;
+  citation_count?: number;
+  publication_date?: string;
+  publisher?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  isbn?: string;
+  language?: string;
+  country?: string;
+  
+  // Content analysis
+  key_excerpts?: string[];
+  main_topics?: string[];
+  methodology?: string;
+  sample_size?: number;
+  study_type?: string;
+  
+  // Quality indicators
+  peer_reviewed?: boolean;
+  open_access?: boolean;
+  quality_indicators?: Record<string, any>;
+  
+  // Citation formatting
+  apa_citation?: string;
+  mla_citation?: string;
+  ieee_citation?: string;
 }
 
 export interface QualityGateResult {
@@ -91,10 +120,29 @@ export interface ResearchResult {
   research_time: number;
   timestamp: string;
   bibliography: string;
+  
+  // Enhanced synthesis features (Gemini Deep Research style)
+  executive_summary?: string;
+  detailed_sections?: Array<{[key: string]: string}>;
+  key_findings?: string[];
+  conflicting_information?: Array<Record<string, any>>;
+  confidence_levels?: Record<string, number>;
+  
+  // Source organization
+  primary_sources?: string[];
+  supporting_sources?: string[];
+  contradictory_sources?: string[];
+  
+  // Enhanced mode specific fields
   domain_detected?: string;
   validation_summary?: Record<string, any>;
   cross_validation_result?: Record<string, any>;
   recommendations?: string[];
+  
+  // Research insights
+  research_gaps?: string[];
+  future_research_directions?: string[];
+  practical_implications?: string[];
 }
 
 export interface ResearchSession {

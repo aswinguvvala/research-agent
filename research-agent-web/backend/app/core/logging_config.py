@@ -3,11 +3,14 @@ Logging configuration for Research Agent Web Backend
 """
 
 import logging
+import logging.handlers
 import sys
+import os
+from pathlib import Path
 from .config import settings
 
 def setup_logging():
-    """Setup logging configuration."""
+    """Setup logging configuration with rotation and proper file handling."""
     
     # Create formatter
     formatter = logging.Formatter(
@@ -27,11 +30,31 @@ def setup_logging():
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
     
-    # File handler for errors
-    file_handler = logging.FileHandler("research_agent_web.log")
-    file_handler.setLevel(logging.WARNING)
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
+    # File handler with rotation (only if enabled)
+    if settings.LOG_FILE_ENABLED and settings.LOG_FILE_PATH:
+        try:
+            # Ensure log directory exists
+            log_file_path = Path(settings.LOG_FILE_PATH)
+            log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Use RotatingFileHandler to prevent huge log files
+            file_handler = logging.handlers.RotatingFileHandler(
+                filename=settings.LOG_FILE_PATH,
+                maxBytes=settings.LOG_MAX_BYTES,
+                backupCount=settings.LOG_BACKUP_COUNT,
+                encoding='utf-8'
+            )
+            file_handler.setLevel(logging.WARNING)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+            
+            if settings.DEBUG:
+                root_logger.info(f"📝 File logging enabled: {settings.LOG_FILE_PATH}")
+                root_logger.info(f"📁 Max file size: {settings.LOG_MAX_BYTES / 1024 / 1024:.1f}MB")
+                root_logger.info(f"📦 Backup count: {settings.LOG_BACKUP_COUNT}")
+        except Exception as e:
+            root_logger.error(f"❌ Failed to setup file logging: {e}")
+            root_logger.warning("⚠️ Continuing with console logging only")
     
     # Specific loggers
     

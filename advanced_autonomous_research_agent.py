@@ -1,747 +1,497 @@
 """
 Advanced Autonomous Research Agent
-Next-generation research agent with multi-source search, iterative refinement, and structured synthesis.
-Designed to compete with premium AI research tools and provide comprehensive academic research capabilities.
+Main orchestrator for comprehensive academic research with multi-source search and iterative refinement.
 """
 
+import os
 import asyncio
-import logging
+import openai
 import time
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+import logging
 
-# Import enhanced AI components
-from ai_query_analyzer import AIQueryAnalyzer, QueryAnalysis
-from ai_relevance_judge import AIRelevanceJudge, RelevanceAssessment
-from enhanced_ai_search_strategist import EnhancedAISearchStrategist, ComprehensiveSearchResult
-from enhanced_ai_synthesizer import EnhancedAISynthesizer, StructuredSynthesis
-from advanced_search_engine import EnhancedSource
+# Fix HuggingFace tokenizer parallelism warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Import citation manager for bibliography
+# Import core components (only the ones that work without heavy dependencies)
 try:
+    from advanced_search_engine import AdvancedSearchEngine, EnhancedSource
+    from ai_query_analyzer import AIQueryAnalyzer, QueryAnalysis
+    from ai_relevance_judge import AIRelevanceJudge, RelevanceAssessment, SourceContext
+    from enhanced_ai_search_strategist import EnhancedAISearchStrategist
+    from enhanced_ai_synthesizer import EnhancedAISynthesizer, StructuredSynthesis
+    from ai_honest_synthesizer import AIHonestSynthesizer, HonestSynthesis
     from citation_manager import CitationManager, Source
-except ImportError:
-    logger = logging.getLogger(__name__)
-    logger.warning("Citation manager not available")
-    CitationManager = None
-    Source = None
+except ImportError as e:
+    logging.error(f"Failed to import core components: {e}")
+    print(f"Error: Missing required components. Please ensure all files are in the current directory.")
+    raise
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class AdvancedResearchResult:
-    """Advanced research result with comprehensive analysis."""
+    """Complete advanced research result with comprehensive analysis."""
     query: str
-    research_time: float
-    confidence_score: float
-    
-    # AI Analysis Results
-    query_analysis: Dict[str, Any]
-    search_results: Dict[str, Any]
-    relevance_evaluations: List[Tuple[Dict[str, Any], Dict[str, Any]]]
-    synthesis_result: Dict[str, Any]
-    
-    # Enhanced Outputs
     executive_summary: str
     detailed_analysis: str
-    structured_synthesis: Dict[str, Any]
-    sources: List[Dict[str, Any]]
-    bibliography: str
-    
-    # Quality Assessment
+    sources: List[EnhancedSource]
     quality_assessment: Dict[str, Any]
-    coverage_assessment: Dict[str, Any]
-    research_insights: Dict[str, Any]
+    research_gaps: List[str]
     recommendations: List[str]
-    
-    # Metadata
-    source_diversity: Dict[str, int]
-    research_notes: List[str]
+    confidence_scores: Dict[str, float]
+    research_iterations: int
+    total_time: float
+    citation_bibliography: str
+    evidence_quality: str
     timestamp: str
 
 
 class AdvancedAutonomousResearchAgent:
     """
-    Advanced autonomous research agent with multi-source search and comprehensive analysis.
-    Designed to provide research quality comparable to premium AI research tools.
+    Advanced autonomous research agent with multi-source search, iterative refinement,
+    and structured synthesis for professional-grade research analysis.
     """
     
     def __init__(self, 
-                 openai_api_key: str, 
-                 google_scholar_api_key: Optional[str] = None,
-                 max_sources: int = 50, 
+                 openai_api_key: str,
+                 max_sources: int = 25,
+                 max_iterations: int = 3,
+                 quality_threshold: float = 0.7,
                  debug_mode: bool = False):
-        """
-        Initialize the advanced autonomous research agent.
         
-        Args:
-            openai_api_key: OpenAI API key for GPT-4o mini
-            google_scholar_api_key: Optional Google Scholar API key (SerpAPI)
-            max_sources: Maximum number of sources to process
-            debug_mode: Enable detailed logging
-        """
+        # Validate API key
         if not openai_api_key or not openai_api_key.strip():
-            raise ValueError("OpenAI API key is required")
+            raise ValueError("OpenAI API key is required but not provided")
         
         self.openai_api_key = openai_api_key
-        self.google_scholar_api_key = google_scholar_api_key
         self.max_sources = max_sources
+        self.max_iterations = max_iterations
+        self.quality_threshold = quality_threshold
         self.debug_mode = debug_mode
         
-        # Initialize enhanced AI components
-        self.query_analyzer = AIQueryAnalyzer(openai_api_key)
-        self.search_strategist = EnhancedAISearchStrategist(openai_api_key, google_scholar_api_key)
-        self.relevance_judge = AIRelevanceJudge(openai_api_key)
-        self.synthesizer = EnhancedAISynthesizer(openai_api_key)
-        
-        # Initialize citation manager if available
-        self.citation_manager = CitationManager() if CitationManager else None
-        
+        # Set up logging
         if debug_mode:
             logging.basicConfig(level=logging.DEBUG)
             logger.setLevel(logging.DEBUG)
+            logger.info("🐛 Debug mode enabled - comprehensive research logging active")
         
-        logger.info("🚀 Advanced Autonomous Research Agent initialized")
-        logger.info(f"🔍 Multi-source search enabled: {'Google Scholar' if google_scholar_api_key else 'Semantic Scholar + ArXiv'}")
+        # Initialize OpenAI client
+        try:
+            self.openai_client = openai.OpenAI(api_key=openai_api_key)
+            logger.info("✅ OpenAI client initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize OpenAI client: {e}")
+            raise
+        
+        # Initialize core research components
+        logger.info("🚀 Initializing Advanced Autonomous Research Agent")
+        
+        try:
+            self.search_engine = AdvancedSearchEngine(max_sources_per_engine=max_sources)
+            logger.info("✅ Advanced search engine initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize search engine: {e}")
+            raise
+            
+        try:
+            self.query_analyzer = AIQueryAnalyzer(openai_api_key=openai_api_key, debug_mode=debug_mode)
+            logger.info("✅ Query analyzer initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize query analyzer: {e}")
+            raise
+            
+        try:
+            self.relevance_judge = AIRelevanceJudge(openai_api_key=openai_api_key, debug_mode=debug_mode)
+            logger.info("✅ Relevance judge initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize relevance judge: {e}")
+            raise
+            
+        try:
+            self.search_strategist = EnhancedAISearchStrategist(
+                openai_api_key=openai_api_key, 
+                max_iterations=max_iterations,
+                debug_mode=debug_mode
+            )
+            logger.info("✅ Search strategist initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize search strategist: {e}")
+            raise
+            
+        try:
+            self.synthesizer = EnhancedAISynthesizer(openai_api_key=openai_api_key, debug_mode=debug_mode)
+            logger.info("✅ Synthesizer initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize synthesizer: {e}")
+            raise
+            
+        try:
+            self.honest_synthesizer = AIHonestSynthesizer(openai_api_key=openai_api_key, debug_mode=debug_mode)
+            logger.info("✅ Honest synthesizer initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize honest synthesizer: {e}")
+            raise
+        
+        self.citation_manager = CitationManager()
+        logger.info("✅ Advanced Autonomous Research Agent ready")
     
-    async def conduct_advanced_research(self, query: str, citation_style: str = "apa") -> AdvancedResearchResult:
+    async def conduct_advanced_research(self, 
+                                      query: str, 
+                                      citation_style: str = "apa") -> AdvancedResearchResult:
         """
-        Conduct advanced autonomous research with comprehensive multi-source analysis.
+        Conduct comprehensive research with multi-source search and iterative refinement.
         
         Args:
-            query: The research question
+            query: Research query
             citation_style: Citation format (apa, mla, ieee)
             
         Returns:
-            AdvancedResearchResult with comprehensive findings
+            AdvancedResearchResult with comprehensive analysis
         """
         start_time = time.time()
-        research_notes = []
-        
-        logger.info(f"🚀 Starting advanced research: {query}")
-        research_notes.append(f"Advanced multi-source research initiated")
+        logger.info(f"🔬 Starting advanced research for: {query}")
         
         try:
-            # Phase 1: Enhanced AI Query Analysis
-            logger.info("🧠 Phase 1: Enhanced Query Understanding & Strategy Generation")
+            # Phase 1: Query Analysis
+            logger.info("🧠 Phase 1: Analyzing research query")
             query_analysis = await self.query_analyzer.analyze_query(query)
-            research_notes.append(f"Query analyzed: {query_analysis.research_type} in {query_analysis.domain_detected}")
-            research_notes.append(f"Generated {len(query_analysis.search_strategies)} specialized search strategies")
             
-            if self.debug_mode:
-                logger.debug(f"🧠 Research Intent: {query_analysis.research_intent}")
-                logger.debug(f"🧠 Domain: {query_analysis.domain_detected}")
-                logger.debug(f"🧠 Key Concepts: {query_analysis.key_concepts}")
-                logger.debug(f"🧠 Temporal Focus: {query_analysis.temporal_focus}")
+            # Phase 2: Multi-Source Search
+            logger.info("🔍 Phase 2: Conducting multi-source search")
+            sources = await self.search_engine.multi_source_search(query)
             
-            # Phase 2: Comprehensive Multi-Source Search with Iterative Refinement
-            logger.info("🎯 Phase 2: Comprehensive Multi-Source Search")
-            search_results = await self.search_strategist.execute_comprehensive_search(
-                query=query,
-                query_analysis=vars(query_analysis),
-                max_sources=self.max_sources
-            )
+            if not sources:
+                logger.warning("⚠️ No sources found during search")
+                return self._create_empty_result(query, "No sources found for the given query")
             
-            research_notes.append(f"Executed {search_results.total_iterations} search iterations")
-            research_notes.append(f"Found {search_results.total_sources_found} sources ({search_results.high_quality_sources} high-quality)")
-            research_notes.append(f"Coverage level: {search_results.coverage_assessment.get('coverage_level', 'unknown')}")
+            logger.info(f"📊 Found {len(sources)} initial sources")
             
-            # Collect all sources from search iterations
-            all_sources = []
-            for iteration in search_results.search_iterations:
-                all_sources.extend(iteration.sources_found)
+            # Phase 3: Relevance Assessment
+            logger.info("⚖️ Phase 3: Assessing source relevance")
+            source_contexts = self._convert_to_source_contexts(sources)
+            relevance_assessments = await self.relevance_judge.batch_assess_relevance(query, source_contexts)
             
-            # Remove duplicates and limit to max_sources
-            unique_sources = self._deduplicate_enhanced_sources(all_sources)[:self.max_sources]
-            
-            logger.info(f"🎯 Collected {len(unique_sources)} unique high-quality sources")
-            
-            if not unique_sources:
-                return self._create_no_sources_result(query, query_analysis, search_results, start_time, research_notes)
-            
-            # Phase 3: Advanced AI Relevance Assessment
-            logger.info("🔍 Phase 3: Advanced Relevance Assessment & Quality Filtering")
-            
-            # Convert EnhancedSource objects to dictionaries for relevance assessment
-            source_dicts = [self._enhanced_source_to_dict(source) for source in unique_sources]
-            
-            relevance_evaluations = await self.relevance_judge.batch_evaluate_papers(
-                query=query,
-                papers=source_dicts
-            )
-            
-            # Filter for relevant sources
+            # Filter sources by relevance
             relevant_sources = []
-            maybe_relevant_sources = []
+            for assessment in relevance_assessments:
+                if assessment.relevance_category in ['highly_relevant', 'maybe_relevant']:
+                    # Find corresponding source
+                    for source in sources:
+                        if source.title in assessment.source_id or assessment.source_id in source.title:
+                            relevant_sources.append(source)
+                            break
             
-            for (source_dict, assessment) in relevance_evaluations:
-                # Find the corresponding EnhancedSource
-                enhanced_source = next(
-                    (s for s in unique_sources if s.title == source_dict.get("title")),
-                    None
-                )
-                
-                if enhanced_source and assessment.is_relevant:
-                    relevant_sources.append((enhanced_source, assessment))
-                elif enhanced_source and assessment.recommendation == "maybe":
-                    maybe_relevant_sources.append((enhanced_source, assessment))
+            if not relevant_sources:
+                relevant_sources = sources[:10]  # Keep top 10 if no relevant ones found
             
-            logger.info(f"🔍 Relevance Assessment: {len(relevant_sources)} highly relevant, {len(maybe_relevant_sources)} possibly relevant")
-            research_notes.append(f"AI identified {len(relevant_sources)} highly relevant sources")
+            logger.info(f"✅ {len(relevant_sources)} relevant sources identified")
             
-            # Combine relevant and maybe relevant for comprehensive analysis
-            all_evaluated_sources = relevant_sources + maybe_relevant_sources
+            # Phase 4: Iterative Search Enhancement (Optional)
+            if len(relevant_sources) < 10 and self.max_iterations > 1:
+                logger.info("🔄 Phase 4: Conducting iterative search enhancement")
+                try:
+                    # Convert sources to dict format for strategist
+                    source_dicts = [self._source_to_dict(source) for source in relevant_sources]
+                    iterative_results = await self.search_strategist.conduct_iterative_search(query, source_dicts)
+                    
+                    if iterative_results.get('final_sources'):
+                        additional_sources = iterative_results['final_sources']
+                        logger.info(f"🔍 Iterative search found {len(additional_sources)} additional sources")
+                        # Note: In a full implementation, we'd convert these back to EnhancedSource objects
+                except Exception as e:
+                    logger.warning(f"⚠️ Iterative search failed: {e}")
             
-            # Phase 4: Citation Processing & Metadata Enhancement
-            logger.info("📚 Phase 4: Citation Processing & Metadata Enhancement")
-            processed_sources = self._process_enhanced_citations(all_evaluated_sources, citation_style)
+            # Phase 5: Structured Synthesis
+            logger.info("📝 Phase 5: Creating structured synthesis")
+            source_dicts = [self._source_to_dict(source) for source in relevant_sources]
+            structured_synthesis = await self.synthesizer.create_structured_synthesis(query, source_dicts)
             
-            # Phase 5: Advanced Structured Synthesis
-            logger.info("📝 Phase 5: Advanced Structured Synthesis")
-            synthesis_result = await self.synthesizer.synthesize_comprehensive_findings(
+            # Phase 6: Honest Evidence Assessment
+            logger.info("🔍 Phase 6: Conducting honest evidence assessment")
+            honest_synthesis = await self.honest_synthesizer.create_honest_synthesis(
+                query, source_dicts, structured_synthesis.executive_summary
+            )
+            
+            # Phase 7: Generate Final Results
+            logger.info("📋 Phase 7: Generating final research results")
+            
+            # Extract key findings from structured synthesis
+            key_findings = structured_synthesis.key_findings
+            
+            # Generate research gaps and recommendations
+            research_gaps = self._extract_research_gaps(structured_synthesis, honest_synthesis)
+            recommendations = self._extract_recommendations(structured_synthesis, honest_synthesis)
+            
+            # Calculate confidence scores
+            confidence_scores = self._calculate_confidence_scores(
+                query_analysis, relevance_assessments, structured_synthesis, honest_synthesis
+            )
+            
+            # Determine evidence quality
+            evidence_quality = self._determine_evidence_quality(honest_synthesis, len(relevant_sources))
+            
+            # Generate citations
+            citation_bibliography = self._generate_citations(relevant_sources, citation_style)
+            
+            total_time = time.time() - start_time
+            
+            # Create final result
+            result = AdvancedResearchResult(
                 query=query,
-                sources=[source for source, _ in all_evaluated_sources],
-                query_analysis=vars(query_analysis),
-                search_metadata={
-                    "total_iterations": search_results.total_iterations,
-                    "sources_searched": search_results.total_sources_found,
-                    "search_strategies": [iteration.search_strategy.get("strategy_name") for iteration in search_results.search_iterations]
-                }
-            )
-            
-            logger.info(f"📝 Advanced synthesis completed: {synthesis_result.synthesis_type} (confidence: {synthesis_result.confidence_score:.3f})")
-            research_notes.append(f"Synthesis type: {synthesis_result.synthesis_type}")
-            research_notes.append(f"Synthesis confidence: {synthesis_result.confidence_score:.3f}")
-            
-            # Phase 6: Comprehensive Quality Assessment
-            logger.info("📊 Phase 6: Comprehensive Quality Assessment")
-            quality_assessment = self._assess_advanced_research_quality(
-                query_analysis, search_results, all_evaluated_sources, synthesis_result
-            )
-            
-            # Generate enhanced bibliography
-            bibliography = self._generate_enhanced_bibliography(processed_sources, citation_style)
-            
-            # Calculate comprehensive metrics
-            end_time = time.time()
-            research_time = round(end_time - start_time, 2)
-            confidence_score = self._calculate_advanced_confidence_score(
-                synthesis_result, search_results, quality_assessment
-            )
-            
-            # Compile comprehensive recommendations
-            final_recommendations = self._compile_comprehensive_recommendations(
-                query_analysis, search_results, synthesis_result, quality_assessment
-            )
-            
-            # Prepare research insights
-            research_insights = {
-                "key_findings": synthesis_result.key_findings,
-                "knowledge_gaps": synthesis_result.knowledge_gaps,
-                "future_directions": synthesis_result.future_directions,
-                "practical_applications": synthesis_result.practical_applications
-            }
-            
-            logger.info(f"✅ Advanced research completed in {research_time}s")
-            logger.info(f"📊 Final metrics: {len(processed_sources)} sources, confidence: {confidence_score:.3f}")
-            
-            # Safe conversion for complex objects
-            def safe_vars(obj):
-                """Safely convert object to dict."""
-                if hasattr(obj, '__dict__'):
-                    return vars(obj)
-                elif hasattr(obj, '_asdict'):
-                    return obj._asdict()
-                elif isinstance(obj, dict):
-                    return obj
-                else:
-                    return {
-                        'type': type(obj).__name__,
-                        'str_representation': str(obj)
-                    }
-            
-            return AdvancedResearchResult(
-                query=query,
-                research_time=research_time,
-                confidence_score=confidence_score,
-                
-                # AI Results
-                query_analysis=safe_vars(query_analysis),
-                search_results=safe_vars(search_results),
-                relevance_evaluations=[(self._enhanced_source_to_dict(s), safe_vars(a)) for s, a in all_evaluated_sources],
-                synthesis_result=safe_vars(synthesis_result),
-                
-                # Enhanced Outputs
-                executive_summary=synthesis_result.executive_summary,
-                detailed_analysis=synthesis_result.detailed_analysis,
-                structured_synthesis=synthesis_result.structured_content,
-                sources=processed_sources,
-                bibliography=bibliography,
-                
-                # Quality Assessment
-                quality_assessment=quality_assessment,
-                coverage_assessment=search_results.coverage_assessment,
-                research_insights=research_insights,
-                recommendations=final_recommendations,
-                
-                # Metadata
-                source_diversity=search_results.source_diversity,
-                research_notes=research_notes,
+                executive_summary=structured_synthesis.executive_summary,
+                detailed_analysis=structured_synthesis.comparative_analysis,
+                sources=relevant_sources,
+                quality_assessment={
+                    "total_sources": len(relevant_sources),
+                    "relevance_score": sum(a.relevance_score for a in relevance_assessments) / len(relevance_assessments),
+                    "evidence_quality": evidence_quality,
+                    "reliability_score": honest_synthesis.reliability_score
+                },
+                research_gaps=research_gaps,
+                recommendations=recommendations,
+                confidence_scores=confidence_scores,
+                research_iterations=1,  # Will be enhanced with iterative search
+                total_time=total_time,
+                citation_bibliography=citation_bibliography,
+                evidence_quality=evidence_quality,
                 timestamp=datetime.now().isoformat()
             )
             
+            logger.info(f"✅ Advanced research completed in {total_time:.2f} seconds")
+            logger.info(f"📈 Found {len(relevant_sources)} relevant sources")
+            logger.info(f"🎯 Evidence quality: {evidence_quality}")
+            logger.info(f"💯 Overall confidence: {confidence_scores.get('overall_confidence', 0.0):.2%}")
+            
+            return result
+            
         except Exception as e:
             logger.error(f"❌ Advanced research failed: {e}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
-            return self._create_error_result(query, str(e), start_time)
+            return self._create_error_result(query, str(e))
     
-    def _enhanced_source_to_dict(self, source: EnhancedSource) -> Dict[str, Any]:
-        """Convert EnhancedSource to dictionary for compatibility."""
-        return {
-            "title": source.title,
-            "authors": source.authors,
-            "abstract": source.abstract,
-            "url": source.url,
-            "doi": source.doi,
-            "pdf_url": source.pdf_url,
-            "publication_year": source.publication_year,
-            "venue": source.venue,
-            "source_type": source.source_type,
-            "source_id": source.source_id,
-            "quality_score": source.quality_score,
-            "keywords": source.keywords,
-            "categories": source.categories,
-            "citation_count": source.metrics.citation_count if source.metrics else 0,
-            "is_highly_cited": source.metrics.is_highly_cited if source.metrics else False
-        }
-    
-    def _deduplicate_enhanced_sources(self, sources: List[EnhancedSource]) -> List[EnhancedSource]:
-        """Remove duplicate enhanced sources based on title similarity."""
-        unique_sources = []
-        seen_titles = set()
-        
+    def _convert_to_source_contexts(self, sources: List[EnhancedSource]) -> List[SourceContext]:
+        """Convert EnhancedSource objects to SourceContext for relevance assessment."""
+        contexts = []
         for source in sources:
-            title = source.title.lower().strip()
-            title = ' '.join(title.split())  # Normalize whitespace
-            
-            if title and title not in seen_titles:
-                seen_titles.add(title)
-                unique_sources.append(source)
-        
-        # Sort by quality score (descending)
-        unique_sources.sort(key=lambda x: x.quality_score, reverse=True)
-        
-        return unique_sources
+            context = SourceContext(
+                title=source.title,
+                abstract=source.abstract,
+                authors=source.authors,
+                year=source.year,
+                venue=source.venue,
+                keywords=[],  # Will be extracted if needed
+                citations=source.citations,
+                source_type=source.source_type
+            )
+            contexts.append(context)
+        return contexts
     
-    def _process_enhanced_citations(self, 
-                                  evaluations: List[Tuple[EnhancedSource, RelevanceAssessment]], 
-                                  citation_style: str) -> List[Dict[str, Any]]:
-        """Process enhanced sources for citation management."""
-        processed_sources = []
-        
-        if not self.citation_manager:
-            logger.warning("Citation manager not available")
-            return [self._enhanced_source_to_dict(source) for source, _ in evaluations]
-        
-        self.citation_manager.clear_sources()
-        
-        for enhanced_source, assessment in evaluations:
-            try:
-                # Create citation source
-                citation_source = Source(
-                    title=enhanced_source.title,
-                    authors=enhanced_source.authors,
-                    year=str(enhanced_source.publication_year),
-                    url=enhanced_source.url,
-                    doi=enhanced_source.doi,
-                    journal=enhanced_source.venue,
-                    source_type=enhanced_source.source_type
-                )
-                
-                citation_num = self.citation_manager.add_source(citation_source)
-                
-                # Create enhanced processed source
-                processed_source = {
-                    **self._enhanced_source_to_dict(enhanced_source),
-                    "citation_number": citation_num,
-                    "relevance_score": assessment.relevance_score,
-                    "relevance_explanation": assessment.explanation,
-                    "is_relevant": assessment.is_relevant,
-                    "quality_metrics": {
-                        "citation_count": enhanced_source.metrics.citation_count if enhanced_source.metrics else 0,
-                        "quality_score": enhanced_source.quality_score,
-                        "venue_score": enhanced_source.metrics.venue_score if enhanced_source.metrics else 0,
-                        "is_highly_cited": enhanced_source.metrics.is_highly_cited if enhanced_source.metrics else False
-                    }
-                }
-                
-                processed_sources.append(processed_source)
-                
-            except Exception as e:
-                logger.warning(f"Failed to process enhanced citation for {enhanced_source.title}: {e}")
-                # Add without citation processing
-                processed_source = {
-                    **self._enhanced_source_to_dict(enhanced_source),
-                    "citation_number": len(processed_sources) + 1,
-                    "relevance_score": assessment.relevance_score,
-                    "is_relevant": assessment.is_relevant,
-                    "error": "Citation processing failed"
-                }
-                processed_sources.append(processed_source)
-        
-        return processed_sources
-    
-    def _generate_enhanced_bibliography(self, sources: List[Dict[str, Any]], citation_style: str) -> str:
-        """Generate enhanced bibliography with quality indicators."""
-        if not self.citation_manager:
-            return "Enhanced bibliography generation unavailable"
-        
-        try:
-            base_bibliography = self.citation_manager.generate_bibliography(citation_style)
-            
-            # Add quality indicators
-            enhanced_lines = []
-            for line in base_bibliography.split('\n'):
-                if line.strip():
-                    # Find corresponding source for quality info
-                    source_info = ""
-                    for source in sources:
-                        if any(author in line for author in source.get("authors", [])):
-                            quality_score = source.get("quality_score", 0)
-                            citation_count = source.get("citation_count", 0)
-                            
-                            if quality_score >= 0.8:
-                                source_info = " [High Quality]"
-                            elif citation_count > 100:
-                                source_info = " [Highly Cited]"
-                            
-                            break
-                    
-                    enhanced_lines.append(line + source_info)
-                else:
-                    enhanced_lines.append(line)
-            
-            return '\n'.join(enhanced_lines)
-            
-        except Exception as e:
-            logger.error(f"Enhanced bibliography generation failed: {e}")
-            return f"Enhanced bibliography error: {str(e)}"
-    
-    def _assess_advanced_research_quality(self, 
-                                        query_analysis: QueryAnalysis,
-                                        search_results: ComprehensiveSearchResult,
-                                        evaluated_sources: List[Tuple[EnhancedSource, RelevanceAssessment]],
-                                        synthesis_result: StructuredSynthesis) -> Dict[str, Any]:
-        """Assess comprehensive research quality with advanced metrics."""
-        
-        if not evaluated_sources:
-            return {
-                "overall_score": 0.0,
-                "quality_level": "insufficient",
-                "detailed_metrics": {},
-                "strengths": [],
-                "areas_for_improvement": ["No sources found"]
-            }
-        
-        # Advanced quality metrics
-        source_count = len(evaluated_sources)
-        high_quality_count = sum(1 for source, _ in evaluated_sources if source.quality_score >= 0.7)
-        avg_quality = sum(source.quality_score for source, _ in evaluated_sources) / source_count
-        
-        # Citation metrics
-        total_citations = sum(source.metrics.citation_count if source.metrics else 0 for source, _ in evaluated_sources)
-        highly_cited_count = sum(1 for source, _ in evaluated_sources 
-                               if source.metrics and source.metrics.is_highly_cited)
-        
-        # Relevance metrics
-        highly_relevant_count = sum(1 for _, assessment in evaluated_sources if assessment.relevance_score >= 0.8)
-        avg_relevance = sum(assessment.relevance_score for _, assessment in evaluated_sources) / source_count
-        
-        # Coverage metrics
-        search_coverage = search_results.coverage_assessment.get("overall_score", 0.0)
-        synthesis_confidence = synthesis_result.confidence_score
-        completeness = synthesis_result.completeness_score
-        
-        # Calculate comprehensive quality score
-        quality_score = (
-            min(source_count / 30, 1.0) * 0.15 +      # Source quantity (normalize to 30)
-            (high_quality_count / source_count) * 0.20 + # Quality ratio
-            avg_quality * 0.15 +                       # Average quality
-            avg_relevance * 0.15 +                     # Average relevance
-            search_coverage * 0.15 +                   # Search coverage
-            synthesis_confidence * 0.10 +              # Synthesis confidence
-            completeness * 0.10                        # Completeness
-        )
-        
-        # Determine quality level
-        if quality_score >= 0.85:
-            quality_level = "exceptional"
-        elif quality_score >= 0.75:
-            quality_level = "excellent"
-        elif quality_score >= 0.65:
-            quality_level = "good"
-        elif quality_score >= 0.50:
-            quality_level = "acceptable"
-        else:
-            quality_level = "insufficient"
-        
-        # Identify strengths and areas for improvement
-        strengths = []
-        areas_for_improvement = []
-        
-        if source_count >= 20:
-            strengths.append("Comprehensive source collection")
-        elif source_count < 10:
-            areas_for_improvement.append("Limited source coverage")
-        
-        if high_quality_count >= 10:
-            strengths.append("Multiple high-quality sources")
-        elif high_quality_count < 5:
-            areas_for_improvement.append("Need more high-quality sources")
-        
-        if highly_cited_count >= 5:
-            strengths.append("Well-cited foundational papers")
-        
-        if search_coverage >= 0.8:
-            strengths.append("Excellent search coverage")
-        elif search_coverage < 0.6:
-            areas_for_improvement.append("Improve search comprehensiveness")
-        
-        if synthesis_confidence >= 0.8:
-            strengths.append("High-confidence synthesis")
-        elif synthesis_confidence < 0.6:
-            areas_for_improvement.append("Synthesis requires more evidence")
-        
+    def _source_to_dict(self, source: EnhancedSource) -> Dict[str, Any]:
+        """Convert EnhancedSource to dictionary format."""
         return {
-            "overall_score": round(quality_score, 3),
-            "quality_level": quality_level,
-            "detailed_metrics": {
-                "source_count": source_count,
-                "high_quality_sources": high_quality_count,
-                "average_quality": round(avg_quality, 3),
-                "total_citations": total_citations,
-                "highly_cited_papers": highly_cited_count,
-                "highly_relevant_sources": highly_relevant_count,
-                "average_relevance": round(avg_relevance, 3),
-                "search_coverage": round(search_coverage, 3),
-                "synthesis_confidence": round(synthesis_confidence, 3),
-                "completeness_score": round(completeness, 3)
-            },
-            "strengths": strengths,
-            "areas_for_improvement": areas_for_improvement
+            'title': source.title,
+            'abstract': source.abstract,
+            'authors': source.authors,
+            'year': source.year,
+            'venue': source.venue,
+            'url': source.url,
+            'citations': source.citations,
+            'source_type': source.source_type,
+            'quality_score': source.quality_score,
+            'doi': source.doi,
+            'pdf_url': source.pdf_url
         }
     
-    def _calculate_advanced_confidence_score(self, 
-                                           synthesis_result: StructuredSynthesis,
-                                           search_results: ComprehensiveSearchResult,
-                                           quality_assessment: Dict[str, Any]) -> float:
-        """Calculate advanced confidence score considering multiple factors."""
+    def _extract_research_gaps(self, structured: StructuredSynthesis, honest: HonestSynthesis) -> List[str]:
+        """Extract research gaps from synthesis results."""
+        gaps = []
         
-        # Component confidence scores
-        synthesis_confidence = synthesis_result.confidence_score
-        search_confidence = search_results.coverage_assessment.get("overall_score", 0.0)
-        quality_confidence = quality_assessment.get("overall_score", 0.0)
+        # From structured synthesis
+        if hasattr(structured, 'limitations_and_gaps'):
+            gaps.append(structured.limitations_and_gaps)
         
-        # Weight synthesis confidence higher as it's the final output
-        overall_confidence = (
-            synthesis_confidence * 0.5 +
-            search_confidence * 0.3 +
-            quality_confidence * 0.2
-        )
+        # From honest synthesis
+        for assessment in honest.evidence_assessments:
+            if assessment.evidence_level in ['limited', 'insufficient']:
+                gaps.append(f"Limited evidence for: {assessment.claim}")
         
-        return round(overall_confidence, 3)
+        return gaps[:5]  # Limit to top 5 gaps
     
-    def _compile_comprehensive_recommendations(self, 
-                                            query_analysis: QueryAnalysis,
-                                            search_results: ComprehensiveSearchResult,
-                                            synthesis_result: StructuredSynthesis,
-                                            quality_assessment: Dict[str, Any]) -> List[str]:
-        """Compile comprehensive recommendations for users and future research."""
+    def _extract_recommendations(self, structured: StructuredSynthesis, honest: HonestSynthesis) -> List[str]:
+        """Extract recommendations from synthesis results."""
         recommendations = []
         
-        # Add synthesis recommendations
-        recommendations.extend(synthesis_result.recommendations[:3])
+        # From structured synthesis
+        if hasattr(structured, 'future_directions'):
+            recommendations.append(f"Future research: {structured.future_directions}")
         
-        # Add search-based recommendations
-        recommendations.extend(search_results.recommendations[:2])
+        # From honest synthesis
+        recommendations.extend(honest.recommendations)
         
-        # Add quality-based recommendations
-        quality_level = quality_assessment.get("quality_level")
-        if quality_level in ["exceptional", "excellent"]:
-            recommendations.append("Research provides comprehensive coverage suitable for academic or professional use")
-        elif quality_level == "good":
-            recommendations.append("Research provides solid foundation with good evidence support")
-        elif quality_level == "acceptable":
-            recommendations.append("Research provides basic coverage but could benefit from additional sources")
+        return recommendations[:5]  # Limit to top 5 recommendations
+    
+    def _calculate_confidence_scores(self, 
+                                   query_analysis: QueryAnalysis,
+                                   relevance_assessments: List[RelevanceAssessment],
+                                   structured: StructuredSynthesis,
+                                   honest: HonestSynthesis) -> Dict[str, float]:
+        """Calculate confidence scores for different aspects."""
+        
+        avg_relevance = sum(a.relevance_score for a in relevance_assessments) / len(relevance_assessments) if relevance_assessments else 0
+        
+        return {
+            'overall_confidence': (query_analysis.confidence_score + avg_relevance + honest.reliability_score) / 3,
+            'query_understanding': query_analysis.confidence_score,
+            'source_relevance': avg_relevance,
+            'evidence_reliability': honest.reliability_score,
+            'synthesis_quality': structured.confidence_assessment.get('overall_confidence', 0.7)
+        }
+    
+    def _determine_evidence_quality(self, honest: HonestSynthesis, source_count: int) -> str:
+        """Determine overall evidence quality level."""
+        if honest.reliability_score > 0.8 and source_count >= 15:
+            return "Strong"
+        elif honest.reliability_score > 0.6 and source_count >= 8:
+            return "Moderate"
         else:
-            recommendations.append("Consider expanding research scope or refining search strategy")
-        
-        # Add gap-based recommendations
-        if synthesis_result.knowledge_gaps:
-            top_gaps = synthesis_result.knowledge_gaps[:2]
-            recommendations.append(f"Future research should explore: {', '.join(top_gaps)}")
-        
-        # Add practical recommendations
-        if synthesis_result.future_directions:
-            recommendations.append(f"Emerging areas to watch: {', '.join(synthesis_result.future_directions[:2])}")
-        
-        # Remove duplicates and limit
-        unique_recommendations = []
-        seen = set()
-        for rec in recommendations:
-            if rec not in seen:
-                seen.add(rec)
-                unique_recommendations.append(rec)
-        
-        return unique_recommendations[:8]
+            return "Limited"
     
-    def _create_no_sources_result(self, 
-                                query: str, 
-                                query_analysis: QueryAnalysis, 
-                                search_results: ComprehensiveSearchResult,
-                                start_time: float, 
-                                research_notes: List[str]) -> AdvancedResearchResult:
-        """Create result when no sources found."""
-        end_time = time.time()
-        research_time = round(end_time - start_time, 2)
-        
-        # Create empty synthesis result
-        empty_synthesis = StructuredSynthesis(
-            executive_summary=f"No relevant sources found for: {query}",
-            detailed_analysis=f"Despite comprehensive multi-source search, no relevant academic sources were found.",
-            structured_content={},
-            main_categories=[],
-            synthesis_type="no_sources",
-            confidence_score=0.0,
-            recommendations=["Try broader search terms", "Consult specialized databases", "Consider alternative research approaches"]
-        )
-        
+    def _generate_citations(self, sources: List[EnhancedSource], style: str) -> str:
+        """Generate citations in the specified style."""
+        try:
+            # Convert to Citation Manager format
+            citation_sources = []
+            for source in sources:
+                citation_source = Source(
+                    title=source.title,
+                    authors=source.authors,
+                    year=source.year,
+                    journal=source.venue,
+                    url=source.url,
+                    doi=source.doi
+                )
+                citation_sources.append(citation_source)
+            
+            return self.citation_manager.generate_bibliography(citation_sources, style)
+        except Exception as e:
+            logger.warning(f"Citation generation failed: {e}")
+            return "Citation generation failed"
+    
+    def _create_empty_result(self, query: str, message: str) -> AdvancedResearchResult:
+        """Create empty result when no sources are found."""
         return AdvancedResearchResult(
             query=query,
-            research_time=research_time,
-            confidence_score=0.0,
-            
-            query_analysis=vars(query_analysis),
-            search_results=vars(search_results),
-            relevance_evaluations=[],
-            synthesis_result=vars(empty_synthesis),
-            
-            executive_summary=empty_synthesis.executive_summary,
-            detailed_analysis=empty_synthesis.detailed_analysis,
-            structured_synthesis={},
+            executive_summary=f"No research sources found for '{query}'. {message}",
+            detailed_analysis="Unable to conduct analysis due to lack of sources.",
             sources=[],
-            bibliography="No sources available",
-            
-            quality_assessment={"overall_score": 0.0, "quality_level": "insufficient"},
-            coverage_assessment=search_results.coverage_assessment,
-            research_insights={"key_findings": [], "knowledge_gaps": [], "future_directions": []},
-            recommendations=empty_synthesis.recommendations,
-            
-            source_diversity={},
-            research_notes=research_notes + ["No sources found despite comprehensive search"],
+            quality_assessment={"total_sources": 0},
+            research_gaps=["Lack of available research sources"],
+            recommendations=["Try broader search terms or different keywords"],
+            confidence_scores={"overall_confidence": 0.0},
+            research_iterations=0,
+            total_time=0.0,
+            citation_bibliography="No sources to cite",
+            evidence_quality="Insufficient",
             timestamp=datetime.now().isoformat()
         )
     
-    def _create_error_result(self, query: str, error_message: str, start_time: float) -> AdvancedResearchResult:
-        """Create result when research fails."""
-        end_time = time.time()
-        research_time = round(end_time - start_time, 2)
-        
-        # Create error synthesis
-        error_synthesis = StructuredSynthesis(
-            executive_summary=f"Research failed due to technical error: {error_message}",
-            detailed_analysis=f"Advanced research for '{query}' encountered a technical error and could not be completed.",
-            structured_content={},
-            main_categories=[],
-            synthesis_type="error",
-            confidence_score=0.0,
-            recommendations=["Check system configuration", "Retry with simpler query", "Contact support if issue persists"]
-        )
-        
+    def _create_error_result(self, query: str, error: str) -> AdvancedResearchResult:
+        """Create error result when research fails."""
         return AdvancedResearchResult(
             query=query,
-            research_time=research_time,
-            confidence_score=0.0,
-            
-            query_analysis={},
-            search_results={},
-            relevance_evaluations=[],
-            synthesis_result=vars(error_synthesis),
-            
-            executive_summary=error_synthesis.executive_summary,
-            detailed_analysis=error_synthesis.detailed_analysis,
-            structured_synthesis={},
+            executive_summary=f"Research failed for '{query}': {error}",
+            detailed_analysis="Unable to complete research due to technical error.",
             sources=[],
-            bibliography="Error occurred",
-            
-            quality_assessment={"overall_score": 0.0, "quality_level": "error"},
-            coverage_assessment={},
-            research_insights={"key_findings": [], "knowledge_gaps": [], "future_directions": []},
-            recommendations=error_synthesis.recommendations,
-            
-            source_diversity={},
-            research_notes=[f"Error: {error_message}"],
+            quality_assessment={"error": error},
+            research_gaps=["Technical limitations prevented analysis"],
+            recommendations=["Check API keys and internet connection"],
+            confidence_scores={"overall_confidence": 0.0},
+            research_iterations=0,
+            total_time=0.0,
+            citation_bibliography="No sources available",
+            evidence_quality="Error",
             timestamp=datetime.now().isoformat()
         )
 
 
-# Example usage and testing
-if __name__ == "__main__":
-    import os
+async def main():
+    """Main function for command line usage."""
+    # Get API key from environment
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print("❌ Error: OPENAI_API_KEY environment variable not set")
+        print("Please set your OpenAI API key:")
+        print("export OPENAI_API_KEY='your-api-key-here'")
+        return
     
-    async def test_advanced_agent():
-        # Get API keys
-        openai_key = os.getenv("OPENAI_API_KEY")
-        scholar_key = os.getenv("SERPAPI_API_KEY")  # Optional
-        
-        if not openai_key:
-            print("⚠️ Please set OPENAI_API_KEY for testing")
-            return
-        
+    # Get query from user
+    query = input("🔬 Enter your research query: ").strip()
+    if not query:
+        print("❌ Error: Please provide a research query")
+        return
+    
+    print(f"🚀 Starting advanced research for: {query}")
+    print("This may take 2-5 minutes for comprehensive analysis...")
+    
+    try:
+        # Initialize agent
         agent = AdvancedAutonomousResearchAgent(
-            openai_api_key=openai_key,
-            google_scholar_api_key=scholar_key,
+            openai_api_key=api_key,
             max_sources=20,
             debug_mode=True
         )
         
-        # Test query
-        query = "types of activation functions in machine learning and deep learning"
-        
-        print(f"🚀 Testing Advanced Autonomous Research Agent")
-        print("=" * 80)
-        print(f"Query: {query}")
-        print("=" * 80)
-        
         # Conduct research
-        result = await agent.conduct_advanced_research(query, "apa")
+        result = await agent.conduct_advanced_research(query)
         
-        print(f"\n📊 Advanced Research Summary:")
-        print(f"Research Time: {result.research_time}s")
-        print(f"Confidence Score: {result.confidence_score:.3f}")
-        print(f"Quality Level: {result.quality_assessment.get('quality_level', 'unknown')}")
-        print(f"Sources Found: {len(result.sources)}")
-        print(f"Source Diversity: {result.source_diversity}")
-        print(f"Coverage Assessment: {result.coverage_assessment.get('coverage_level', 'unknown')}")
+        # Display results
+        print("\n" + "="*80)
+        print("🎯 ADVANCED RESEARCH RESULTS")
+        print("="*80)
         
-        print(f"\n📈 Quality Metrics:")
-        metrics = result.quality_assessment.get("detailed_metrics", {})
-        for metric, value in metrics.items():
-            print(f"  {metric}: {value}")
+        print(f"\n📊 Query: {result.query}")
+        print(f"⏱️  Research Time: {result.total_time:.2f} seconds")
+        print(f"📈 Sources Found: {len(result.sources)}")
+        print(f"🎯 Evidence Quality: {result.evidence_quality}")
+        print(f"💯 Overall Confidence: {result.confidence_scores.get('overall_confidence', 0.0):.2%}")
         
-        print(f"\n📝 Executive Summary:")
-        print(result.executive_summary[:300] + "..." if len(result.executive_summary) > 300 else result.executive_summary)
+        print(f"\n📋 EXECUTIVE SUMMARY")
+        print("-" * 40)
+        print(result.executive_summary)
         
-        print(f"\n🔍 Key Findings:")
-        for i, finding in enumerate(result.research_insights.get("key_findings", [])[:3], 1):
-            print(f"{i}. {finding}")
+        print(f"\n📝 DETAILED ANALYSIS")
+        print("-" * 40)
+        print(result.detailed_analysis)
         
-        print(f"\n💡 Recommendations:")
-        for i, rec in enumerate(result.recommendations[:3], 1):
-            print(f"{i}. {rec}")
-    
-    # Run test
-    asyncio.run(test_advanced_agent())
+        if result.research_gaps:
+            print(f"\n🔍 RESEARCH GAPS ({len(result.research_gaps)})")
+            print("-" * 40)
+            for i, gap in enumerate(result.research_gaps, 1):
+                print(f"{i}. {gap}")
+        
+        if result.recommendations:
+            print(f"\n💡 RECOMMENDATIONS ({len(result.recommendations)})")
+            print("-" * 40)
+            for i, rec in enumerate(result.recommendations, 1):
+                print(f"{i}. {rec}")
+        
+        print(f"\n📚 BIBLIOGRAPHY")
+        print("-" * 40)
+        print(result.citation_bibliography)
+        
+        print("\n" + "="*80)
+        print("✅ Advanced research completed successfully!")
+        print("="*80)
+        
+    except Exception as e:
+        print(f"\n❌ Research failed: {e}")
+        import traceback
+        if os.getenv("DEBUG"):
+            traceback.print_exc()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
