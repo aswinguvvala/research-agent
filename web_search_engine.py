@@ -46,6 +46,55 @@ class ComprehensiveWebSearchEngine:
         }
     
     
+    def _calculate_relevance_score(self, query: str, title: str, snippet: str) -> float:
+        """
+        Calculate relevance score between query and content.
+        Like Gemini Deep Research - intelligent relevance scoring.
+        """
+        try:
+            query_terms = set(query.lower().split())
+            
+            # Clean and tokenize content
+            title_terms = set(title.lower().split())
+            snippet_terms = set(snippet.lower().split())
+            content_terms = title_terms.union(snippet_terms)
+            
+            # Calculate term overlap
+            overlap = len(query_terms.intersection(content_terms))
+            total_query_terms = len(query_terms)
+            
+            if total_query_terms == 0:
+                return 0.0
+            
+            # Base score from term overlap
+            base_score = overlap / total_query_terms
+            
+            # Boost score if query appears as phrase in content
+            query_phrase = query.lower()
+            content_text = f"{title} {snippet}".lower()
+            
+            if query_phrase in content_text:
+                base_score += 0.3
+            
+            # Penalize placeholder/generic content
+            placeholder_indicators = [
+                "lorem ipsum", "example.com", "placeholder", "dummy",
+                "generic", "template", "sample", "test content",
+                f"about {query.lower()}", f"information about {query.lower()}"
+            ]
+            
+            for indicator in placeholder_indicators:
+                if indicator in content_text:
+                    base_score *= 0.3  # Heavy penalty for placeholder content
+            
+            # Cap at 1.0
+            return min(base_score, 1.0)
+            
+        except Exception as e:
+            logger.warning(f"Relevance scoring failed: {e}")
+            return 0.5  # Default neutral score
+    
+    
     def _search_duckduckgo(self, query: str, max_results: int = 5) -> List[WebSearchResult]:
         """
         Search DuckDuckGo for web results.
@@ -197,45 +246,17 @@ class ComprehensiveWebSearchEngine:
     def _search_news(self, query: str, max_results: int = 3) -> List[WebSearchResult]:
         """
         Search for recent news articles.
-        Uses NewsAPI or similar services.
+        DISABLED: Fake news generation removed for citation integrity.
         """
-        try:
-            results = []
-            
-            # For demo purposes, create news-like results
-            # In production, you'd use NewsAPI, Google News API, or scrape news sites
-            news_sources = [
-                {
-                    'title': f"Breaking: Recent developments in {query}",
-                    'url': f"https://news.example.com/article/{quote_plus(query)}-latest",
-                    'snippet': f"Latest news and updates about {query}. This comprehensive report covers recent developments and expert analysis.",
-                    'date': datetime.now().strftime('%Y-%m-%d')
-                },
-                {
-                    'title': f"Analysis: {query} market trends and insights",
-                    'url': f"https://finance.example.com/analysis/{quote_plus(query)}",
-                    'snippet': f"Expert analysis of {query} including market trends, industry insights, and future outlook.",
-                    'date': (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                }
-            ]
-            
-            for i, news_item in enumerate(news_sources[:max_results]):
-                result = WebSearchResult(
-                    title=news_item['title'],
-                    url=news_item['url'],
-                    snippet=news_item['snippet'],
-                    source='news',
-                    date=news_item['date'],
-                    relevance_score=0.8
-                )
-                results.append(result)
-            
-            logger.info(f"📰 News search found {len(results)} results")
-            return results
-            
-        except Exception as e:
-            logger.warning(f"News search failed: {e}")
-            return []
+        # Disable fake news generation to prevent citation integrity issues
+        logger.info("📰 News search disabled (prevents fake results)")
+        return []
+        
+        # TODO: Implement real news API integration:
+        # - NewsAPI (newsapi.org) for real news articles
+        # - Google News RSS feeds
+        # - Bing News API
+        # Only return results with actual news content validation
     
     
     def _filter_by_strategy(self, results: List[WebSearchResult], strategy: str) -> List[WebSearchResult]:
@@ -293,8 +314,23 @@ class ComprehensiveWebSearchEngine:
                 seen_urls.add(result.url)
                 unique_results.append(result)
         
+        # CRITICAL: Apply relevance scoring and quality gates
+        quality_filtered_results = []
+        for result in unique_results:
+            # Recalculate relevance score for all results
+            actual_relevance = self._calculate_relevance_score(query, result.title, result.snippet)
+            result.relevance_score = actual_relevance
+            
+            # Quality gate: Only include results with relevance > 0.3
+            if actual_relevance > 0.3:
+                quality_filtered_results.append(result)
+            else:
+                logger.info(f"🚫 Filtered low-relevance result: '{result.title}' (score: {actual_relevance:.2f})")
+        
+        logger.info(f"🎯 Quality filtering: {len(unique_results)} → {len(quality_filtered_results)} results")
+        
         # Filter and prioritize based on strategy
-        filtered_results = self._filter_by_strategy(unique_results, strategy)
+        filtered_results = self._filter_by_strategy(quality_filtered_results, strategy)
         
         logger.info(f"✅ Comprehensive web search completed: {len(filtered_results)} unique results")
         return filtered_results

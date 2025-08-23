@@ -41,6 +41,15 @@ class SimpleSource:
 
 
 @dataclass
+class QueryDisambiguation:
+    """Query disambiguation options."""
+    original_query: str
+    is_ambiguous: bool
+    options: List[Dict[str, str]]  # [{"term": "LoRa", "description": "IoT communication protocol"}, ...]
+    confidence_score: float
+
+
+@dataclass
 class UnifiedResearchResult:
     """Unified research result with inline citations."""
     query: str
@@ -50,6 +59,7 @@ class UnifiedResearchResult:
     research_time: float
     timestamp: str
     search_strategy: str  # 'recent', 'historical', 'comprehensive'
+    disambiguation_used: Optional[QueryDisambiguation] = None
 
 
 class UnifiedResearchAgent:
@@ -92,6 +102,72 @@ class UnifiedResearchAgent:
         if debug_mode:
             logging.basicConfig(level=logging.DEBUG)
             logger.info("🐛 Debug mode enabled for Unified Research Agent")
+    
+    
+    def _detect_query_ambiguity(self, query: str) -> QueryDisambiguation:
+        """
+        Detect if query is ambiguous and needs disambiguation.
+        Like Gemini Deep Research - identify terms with multiple meanings.
+        """
+        query_lower = query.lower()
+        
+        # Common ambiguous terms in tech/AI space
+        ambiguous_terms = {
+            "lora": [
+                {"term": "LoRa", "description": "Long Range - IoT communication protocol for low-power devices"},
+                {"term": "LoRA", "description": "Low-Rank Adaptation - AI technique for efficient model fine-tuning"}
+            ],
+            "python": [
+                {"term": "Python Programming", "description": "Programming language used for software development"},
+                {"term": "Python Animal", "description": "Large snake species and reptile information"}
+            ],
+            "transformer": [
+                {"term": "Transformer (AI)", "description": "Neural network architecture for language models"},
+                {"term": "Transformer (Electrical)", "description": "Electrical device for voltage conversion"}
+            ],
+            "bert": [
+                {"term": "BERT (AI)", "description": "Bidirectional Encoder Representations from Transformers - NLP model"},
+                {"term": "Bert (Name)", "description": "Person name or character information"}
+            ],
+            "go": [
+                {"term": "Go Programming", "description": "Programming language developed by Google"},
+                {"term": "Go Game", "description": "Ancient board game strategy and rules"}
+            ],
+            "rust": [
+                {"term": "Rust Programming", "description": "Systems programming language focused on safety"},
+                {"term": "Rust Corrosion", "description": "Metal oxidation and corrosion prevention"}
+            ],
+            "swift": [
+                {"term": "Swift Programming", "description": "Apple's programming language for iOS development"},
+                {"term": "Swift Bird/Speed", "description": "Bird species or speed-related information"}
+            ]
+        }
+        
+        # Check for ambiguous terms
+        for ambiguous_term, options in ambiguous_terms.items():
+            if ambiguous_term in query_lower:
+                # Calculate confidence based on context clues
+                confidence = 0.8  # Base confidence for detected ambiguity
+                
+                # Reduce confidence if context clues are present
+                tech_context_clues = ["programming", "code", "software", "development", "algorithm", "model", "ai", "ml", "iot", "protocol", "network", "computer"]
+                if any(clue in query_lower for clue in tech_context_clues):
+                    confidence = 0.3  # Lower ambiguity if context is clear
+                
+                return QueryDisambiguation(
+                    original_query=query,
+                    is_ambiguous=confidence > 0.6,
+                    options=options,
+                    confidence_score=confidence
+                )
+        
+        # No ambiguity detected
+        return QueryDisambiguation(
+            original_query=query,
+            is_ambiguous=False,
+            options=[],
+            confidence_score=0.0
+        )
     
     
     def _determine_search_strategy(self, query: str) -> str:
@@ -313,38 +389,53 @@ class UnifiedResearchAgent:
     def _generate_summary_with_citations(self, query: str, sources: List[SimpleSource]) -> str:
         """
         Generate summary with inline [1], [2], [3] citations using GPT-4o mini.
+        CRITICAL: Only use information actually present in sources - no training data generation.
         """
         try:
-            # Prepare source context for GPT-4o mini
+            # Validate source quality first
+            if not sources:
+                return f"No relevant sources found for: {query}. Please try a more specific search query."
+            
+            # Filter for quality sources
+            quality_sources = [s for s in sources if len(s.snippet) > 50]
+            if not quality_sources:
+                return f"Found sources for '{query}' but content quality is insufficient for analysis. Please try different search terms."
+            
+            # Prepare source context for GPT-4o mini with emphasis on source-grounding
             source_context = ""
-            for source in sources:
+            for source in quality_sources:
                 source_context += f"\n[{source.citation_id}] {source.title}\n"
                 source_context += f"Authors: {', '.join(source.authors)}\n"
                 source_context += f"Date: {source.date}\n"
                 source_context += f"Content: {source.snippet}\n"
                 source_context += f"Type: {source.source_type}\n\n"
             
-            # Create prompt for GPT-4o mini
-            prompt = f"""You are a research assistant tasked with creating a comprehensive summary with inline citations.
+            # CRITICAL: Enhanced prompt for source-grounded synthesis
+            prompt = f"""You are a research assistant creating a summary ONLY from provided sources. Do NOT use your training data.
 
 QUERY: {query}
 
 SOURCES:
 {source_context}
 
-INSTRUCTIONS:
-1. Create a comprehensive, well-structured summary that answers the query
-2. Use INLINE CITATIONS after every fact: [1], [2], [3] etc.
-3. Every sentence with a fact MUST have a citation
-4. Use multiple sources when possible
-5. Structure with clear headings if appropriate
-6. Write in a professional, academic tone
-7. Ensure the summary directly addresses the user's question
+CRITICAL INSTRUCTIONS:
+1. ONLY use information that appears in the SOURCE CONTENT above
+2. DO NOT generate facts from your training knowledge
+3. If sources don't contain information to answer the query, say so
+4. Use INLINE CITATIONS [1], [2], [3] for EVERY fact
+5. Each citation must correspond to the actual source where you found the information
+6. If sources are insufficient, explain what's missing
+
+VALIDATION RULES:
+- Every fact must be traceable to a source snippet
+- Citations must match source numbers exactly
+- Do not infer or extrapolate beyond source content
+- If contradictions exist between sources, mention them
 
 FORMAT EXAMPLE:
-"Large language models have shown remarkable capabilities in reasoning tasks [1]. Recent advances include chain-of-thought prompting [2] and self-consistency methods [3]. The field has evolved significantly since the introduction of transformer architectures [1]."
+"According to the provided sources, large language models show capabilities in reasoning [1]. The research indicates chain-of-thought methods improve performance [2]. However, the available sources provide limited information about recent developments."
 
-Generate a comprehensive summary with inline citations:"""
+Generate a source-grounded summary with accurate citations:"""
 
             # Call GPT-4o mini specifically
             response = self.openai_client.chat.completions.create(
@@ -364,8 +455,8 @@ Generate a comprehensive summary with inline citations:"""
             
         except Exception as e:
             logger.error(f"❌ Failed to generate summary with GPT-4o mini: {e}")
-            # Fallback summary
-            return f"Research summary for: {query}\n\nBased on {len(sources)} sources, this analysis covers the key aspects of your query. [1][2][3]"
+            # Honest fallback - no fake citations
+            return f"Research summary for: {query}\n\nError occurred during AI synthesis. Found {len(sources)} sources but unable to process content. Please try again or use more specific search terms."
     
     
     async def _generate_summary_with_citations_async(self, query: str, sources: List[SimpleSource], progress_callback=None) -> str:
@@ -396,8 +487,8 @@ Generate a comprehensive summary with inline citations:"""
             
         except Exception as e:
             logger.error(f"❌ Async summary generation failed: {e}")
-            # Fallback summary
-            return f"Research summary for: {query}\n\nBased on {len(sources)} sources, this analysis covers the key aspects of your query. [1][2][3]"
+            # Honest fallback - no fake citations
+            return f"Research summary for: {query}\n\nError occurred during AI synthesis. Found {len(sources)} sources but unable to process content. Please try again or use more specific search terms."
     
     
     async def research(self, query: str, progress_callback=None) -> UnifiedResearchResult:
@@ -421,8 +512,20 @@ Generate a comprehensive summary with inline citations:"""
                 except Exception as e:
                     logger.warning(f"Progress callback failed: {e}")
         
+        # Stage 0: Query Disambiguation (Like Gemini Deep Research)
+        await update_progress('analyzing', 0.02, '🔍 Analyzing query for potential ambiguity...')
+        disambiguation = self._detect_query_ambiguity(query)
+        
+        if disambiguation.is_ambiguous:
+            logger.warning(f"⚠️ Ambiguous query detected: '{query}' - Options: {[opt['term'] for opt in disambiguation.options]}")
+            await update_progress('analyzing', 0.05, f'⚠️ Detected ambiguous term - proceeding with general interpretation')
+            # TODO: In future, pause research and present disambiguation UI to user
+            # For now, continue with research but log the ambiguity
+        else:
+            logger.info(f"✅ Query '{query}' is unambiguous - proceeding with research")
+        
         # Stage 1: Strategy Analysis (Gemini-style thinking)
-        await update_progress('analyzing', 0.05, '🤔 Analyzing query and determining research strategy...')
+        await update_progress('analyzing', 0.08, '🤔 Analyzing query and determining research strategy...')
         strategy = self._determine_search_strategy(query)
         logger.info(f"📊 Search strategy: {strategy}")
         await update_progress('analyzing', 0.10, f'🎯 Using {strategy} search strategy for optimal results')
@@ -473,7 +576,8 @@ Generate a comprehensive summary with inline citations:"""
             total_sources=len(all_sources),
             research_time=research_time,
             timestamp=datetime.now().isoformat(),
-            search_strategy=strategy
+            search_strategy=strategy,
+            disambiguation_used=disambiguation if disambiguation.is_ambiguous else None
         )
         
         logger.info(f"✅ Research completed in {research_time:.2f}s with {len(all_sources)} sources")
